@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <csignal>
 #include <cassert>
+#include <cerrno>
 #include <unistd.h>
 #include <cstring>
 #include <pthread.h>
@@ -44,6 +45,7 @@
 #include "interface_plugin.h"
 #include "AlsaPlayer.h"
 #include "control.h"
+#include "alsaplayer_error.h"
 
 static pthread_mutex_t finish_mutex;
 static coreplayer_notifier notifier;
@@ -96,10 +98,14 @@ int daemon_running(void)
 
 int daemon_stop(void)
 {
-	char dummy;
+	char dummy = 0;
 
-	// signal finish via pipe
-	(void)write(busypipe[1], &dummy, 1);
+	/* Wake the daemon loop waiting on busypipe.  Best-effort: if the
+	 * write fails the stop handshake may hang, so report it. */
+	if (write(busypipe[1], &dummy, 1) < 0) {
+		alsaplayer_error("daemon_stop: write to busypipe failed: %s",
+			strerror(errno));
+	}
 
 	pthread_mutex_lock(&finish_mutex);
 	pthread_mutex_unlock(&finish_mutex);

@@ -571,7 +571,15 @@ static int reconnect (http_desc_t *desc, char *redirect)
 			     desc->path, desc->host, PACKAGE, VERSION,
 			     desc->pos);
     //alsaplayer_error("%s", request);
-    (void)write(desc->sock, request, strlen(request));
+    {
+	size_t req_len = strlen(request);
+	ssize_t written = write(desc->sock, request, req_len);
+	if (written < 0 || (size_t)written != req_len) {
+	    alsaplayer_error("HTTP: Failed to send request to %s:%u: %s",
+		desc->host, desc->port, strerror(errno));
+	    return 1;
+	}
+    }
     desc->begin = desc->pos;
     desc->buffer_pos = 0;
 
