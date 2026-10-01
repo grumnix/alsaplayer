@@ -67,7 +67,7 @@
               libsndfile
               libGL
               libGLU
-              xorg.libX11
+              libx11
               zlib
             ];
 

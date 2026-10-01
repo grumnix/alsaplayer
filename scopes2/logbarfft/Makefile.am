@@ -1,7 +1,7 @@
-if HAVE_GTK2
+if HAVE_GTK3
 
 logbarfftltlibs = liblogbarfft.la
-logbarfftldflags = -export-dynamic -avoid-version @GTK2_LIBS@
+logbarfftldflags = -export-dynamic -avoid-version @GTK3_LIBS@
 logbarfftsources = logbarfft.c
 
 lib_LTLIBRARIES = $(logbarfftltlibs)
@@ -17,7 +17,7 @@ endif
 AM_CFLAGS = -D_REENTRANT -I$(top_builddir) \
 			-I$(top_srcdir)/libalsaplayer -I$(top_srcdir)/alsaplayer \
 			-I$(top_srcdir)/app/scopes \
-			@GTK2_CFLAGS@ @DFLAGS@
+			@GTK3_CFLAGS@ @DFLAGS@
 
 libdir = $(ADDON_DIR)/scopes2
 

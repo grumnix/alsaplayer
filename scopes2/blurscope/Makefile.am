@@ -1,7 +1,7 @@
-if HAVE_GTK2
+if HAVE_GTK3
 
 blurscopeltlibs = libblurscope.la
-blurscopeldflags = -export-dynamic -avoid-version @GTK2_LIBS@
+blurscopeldflags = -export-dynamic -avoid-version @GTK3_LIBS@
 blurscopesources = blurscope.c
 
 lib_LTLIBRARIES = $(blurscopeltlibs)
@@ -18,7 +18,7 @@ libdir = $(ADDON_DIR)/scopes2
 
 AM_CFLAGS = -D_REENTRANT -I$(top_builddir) \
 			 -I$(top_srcdir)/libalsaplayer -I$(top_srcdir)/alsaplayer \
-			@GTK2_CFLAGS@ @DFLAGS@
+			@GTK3_CFLAGS@ @DFLAGS@
 
 libblurscope_la_LDFLAGS = $(blurscopeldflags)
 LIBS =

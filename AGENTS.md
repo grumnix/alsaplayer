@@ -173,4 +173,11 @@ Mechanical / API changes applied:
 
 `configure.ac` checks `gtk+-3.0`; flag `--enable-gtk3`. Flake depends on `gtk3`.
 
+
+### Scopes and GTK3
+
+Most visualization plugins under `scopes2/` (monoscope, blurscope, levelmeter, …) still call **removed GDK drawing APIs** (`gdk_draw_indexed_image`, `GdkRgbCmap`, `widget->style->white_gc`, `GDK_THREADS_*`). They are **not built** with the GTK3 port until rewritten with Cairo/`draw`.
+
+`scopes2/Makefile.am` currently only builds **`opengl_spectrum`**.
+
 Known follow-ups: replace override_* with CSS providers; migrate off StatusIcon; verify DnD and file chooser on GTK 3.24+.

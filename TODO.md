@@ -19,6 +19,7 @@
 
 - [ ] Build/run GTK3 UI: `nix build -L .` and manual smoke test
 - [ ] Fix any remaining GTK3 deprecation warnings (override_* → CSS, StatusIcon)
+- [ ] Port scopes2/* (except opengl_spectrum) from gdk_draw_* to Cairo; re-enable in scopes2/Makefile.am
 
 - [ ] Confirm `nix build -L .` succeeds
 - [ ] Confirm plugins under `$out/lib/alsaplayer` and runtime discovery
