@@ -50,6 +50,8 @@
               alsa-lib
               gtk3
               glib
+              # glib's pkg-config Requires.private pulls in sysprof-capture-4
+              libsysprof-capture
               libjack2
               libmad
               libid3tag
@@ -58,6 +60,8 @@
               libvorbis
               libmikmod
               libsndfile
+              # sndfile's pkg-config Requires.private pulls in opus
+              libopus
               libGL
               libGLU
               libx11
