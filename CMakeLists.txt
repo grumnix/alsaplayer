@@ -146,11 +146,12 @@ endif()
 
 if(ENABLE_CDDA)
   include(CheckIncludeFile)
-  check_include_file("linux/cdrom.h" HAVE_LINUX_CDROM_H)
-  if(HAVE_LINUX_CDROM_H)
+  check_include_file("linux/cdrom.h" _HAVE_LINUX_CDROM_H)
+  if(_HAVE_LINUX_CDROM_H)
     set(HAVE_LINUX_CDROM 1)
     set(HAVE_LINUX_CDROM_H 1)
   else()
+    message(WARNING "linux/cdrom.h not found; disabling CDDA")
     set(ENABLE_CDDA OFF)
   endif()
 endif()
@@ -324,7 +325,10 @@ if(ENABLE_SNDFILE)
 endif()
 
 if(ENABLE_CDDA)
-  alsa_player_plugin(cdda DIR input SOURCES input/cdda/cdda_engine.c)
+  alsa_player_plugin(cdda DIR input
+    SOURCES input/cdda/cdda_engine.c
+    DEFINES HAVE_LINUX_CDROM_H HAVE_LINUX_CDROM
+  )
 endif()
 
 alsa_player_plugin(text_interface DIR interface SOURCES interface/text/text.cpp)
