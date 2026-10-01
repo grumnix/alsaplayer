@@ -302,8 +302,12 @@ main_window_delete(GtkWidget *widget, GdkEvent *, gpointer)
 
 	PlaylistWindow *playlist_window = (PlaylistWindow *) g_object_get_data(G_OBJECT(widget), "playlist_window");
 
-	prefs_set_int(ap_prefs, "gtk2_interface", "width", widget->allocation.width);
-	prefs_set_int(ap_prefs, "gtk2_interface", "height", widget->allocation.height);
+	{
+		GtkAllocation __alloc;
+		gtk_widget_get_allocation(widget, &__alloc);
+		prefs_set_int(ap_prefs, "gtk2_interface", "width", __alloc.width);
+		prefs_set_int(ap_prefs, "gtk2_interface", "height", __alloc.height);
+	}
 
 	// Remove notifier
 
@@ -978,7 +982,11 @@ playlist_button_cb(GtkWidget *button, gpointer user_data)
 
 	if (pl->IsHidden()) {
 		pl->Show();
-		gtk_window_resize(GTK_WINDOW(window), window->allocation.width, window->allocation.height + pl->GetHeight());
+		{
+			GtkAllocation __alloc;
+			gtk_widget_get_allocation(window, &__alloc);
+			gtk_window_resize(GTK_WINDOW(window), __alloc.width, __alloc.height + pl->GetHeight());
+		}
 
 		geometry.max_width =  65535;
 		geometry.max_height = 65535;
@@ -989,7 +997,11 @@ playlist_button_cb(GtkWidget *button, gpointer user_data)
 	}
 	else {
 		pl->Hide();
-		gtk_window_resize(GTK_WINDOW(window), window->allocation.width, 1);
+		{
+			GtkAllocation __alloc;
+			gtk_widget_get_allocation(window, &__alloc);
+			gtk_window_resize(GTK_WINDOW(window), __alloc.width, 1);
+		}
 
 		geometry.max_width =  65535;
 		geometry.max_height = -1;

@@ -115,17 +115,24 @@ void InfoWindow::set_balance(const gchar *text)
 void InfoWindow::set_positions()
 {
 	gint x, y, width, height;
+	GtkAllocation vol_a, pos_a, speed_a, bal_a, layout_a;
 
-	if ((this->labelheight < 2) || (this->leftwidth < 2) || (this->rightwidth < 2) || (this->labelheight != this->volume->allocation.height)) {
-		this->leftwidth = (this->speed->allocation.width > this->balance->allocation.width)? this->speed->allocation.width:this->balance->allocation.width;
-		this->rightwidth = (this->volume->allocation.width > this->position->allocation.width)? this->volume->allocation.width:this->position->allocation.width;
-		this->labelheight = this->volume->allocation.height;
+	gtk_widget_get_allocation(this->volume, &vol_a);
+	gtk_widget_get_allocation(this->position, &pos_a);
+	gtk_widget_get_allocation(this->speed, &speed_a);
+	gtk_widget_get_allocation(this->balance, &bal_a);
+	gtk_widget_get_allocation(this->layout, &layout_a);
+
+	if ((this->labelheight < 2) || (this->leftwidth < 2) || (this->rightwidth < 2) || (this->labelheight != vol_a.height)) {
+		this->leftwidth = (speed_a.width > bal_a.width) ? speed_a.width : bal_a.width;
+		this->rightwidth = (vol_a.width > pos_a.width) ? vol_a.width : pos_a.width;
+		this->labelheight = vol_a.height;
 
 		gtk_widget_set_size_request(this->window, -1, this->labelheight * 2 + this->labelheight / 3);
 	}
 
-	width = this->layout->allocation.width;
-	height = this->layout->allocation.height;
+	width = layout_a.width;
+	height = layout_a.height;
 
 	//speed has fixed position
 	// 2 px padding
@@ -143,11 +150,11 @@ void InfoWindow::set_positions()
 	gtk_widget_set_size_request (this->format, width - x - this->rightwidth - this->labelheight, -1);
 	gtk_layout_move(GTK_LAYOUT(this->layout), this->format, x, y);
 
-	x = width - this->volume->allocation.width -2;
+	x = width - vol_a.width -2;
 	y = 0;
 	gtk_layout_move(GTK_LAYOUT(this->layout), this->volume, x, y);
 
-	x = width - this->position->allocation.width - 2;
+	x = width - pos_a.width - 2;
 	y = height - this->labelheight;
 	gtk_layout_move(GTK_LAYOUT(this->layout), this->position, x, y);
 

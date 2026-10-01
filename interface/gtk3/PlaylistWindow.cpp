@@ -298,7 +298,7 @@ playlist_play_current(GtkWidget *tree, PlaylistWindow *playlist_window)
 
 		GList* data = gtk_tree_selection_get_selected_rows(selection, NULL);
 
-		selected = get_path_number((GtkTreePath *)data->data);
+		selected = get_path_number((GtkTreePath *)gtk_selection_data_get_data(data));
 
 		g_list_free(data);
 
@@ -430,7 +430,7 @@ dnd_received(GtkWidget *widget,
 	switch(info) {
 		case TARGET_URI_LIST:
 			char uri [512];
-			ap_strlcpy(uri, (const char *)data->data, sizeof (uri));
+			ap_strlcpy(uri, (const char *)gtk_selection_data_get_data(data), sizeof (uri));
 			filename = uri;
 			while (filename) {
 				if ((p=s=strstr(filename, "\r\n"))) {
@@ -680,8 +680,12 @@ PlaylistWindow::PlaylistWindow(Playlist *pl) {
 	this->list = (GtkWidget *)g_object_get_data(G_OBJECT(window), "list");
 
 	this->current_entry = 1;
-	this->width = window->allocation.width;
-	this->height = window->allocation.height;
+	{
+		GtkAllocation __alloc;
+		gtk_widget_get_allocation(window, &__alloc);
+		this->width = __alloc.width;
+		this->height = __alloc.height;
+	}
 	this->play_on_add = prefs_get_bool(ap_prefs, "gtk2_interface", "play_on_add", FALSE);
 
 
@@ -898,8 +902,12 @@ void PlaylistWindow::Show()
 void PlaylistWindow::Hide()
 {
 	if(gtk_widget_get_visible(window)) {
-		width = window->allocation.width;
-		height = window->allocation.height;
+		{
+			GtkAllocation __alloc;
+			gtk_widget_get_allocation(window, &__alloc);
+			width = __alloc.width;
+			height = __alloc.height;
+		}
 		gtk_widget_hide(window);
 	}
 }
