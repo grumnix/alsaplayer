@@ -594,10 +594,15 @@ static char *
 cddb_lookup (const char *address, const char *char_port, int discID, struct cd_trk_list *tl)
 {
 	int port = atoi (char_port);
-	int server_fd, i, j;
+	int server_fd, i, j, n;
 	int total_secs = 0, counter = 0;
 	char *answer = NULL, *username, *filename, categ[20], newID[9];
-	char msg[BUFFER_SIZE], offsets[BUFFER_SIZE], tmpbuf[BUFFER_SIZE];
+	/* offsets holds per-track frame offsets; msg holds the full CDDB
+	 * command or HTTP GET.  msg must be larger than offsets so the fixed
+	 * format overhead (query prefix, hello fields, HTTP framing) fits
+	 * without truncating the offset list. */
+	char offsets[BUFFER_SIZE], tmpbuf[BUFFER_SIZE];
+	char msg[BUFFER_SIZE + 512];
 	char hostname[MAXHOSTNAMELEN], separator='+';
 
 	/* try to create a socket to the server */
@@ -622,11 +627,19 @@ cddb_lookup (const char *address, const char *char_port, int discID, struct cd_t
 	}
 	/* set some settings before saying HELLO to the CDDB server */
 	username = getlogin ();
+	if (!username)
+		username = "unknown";
 	if ((gethostname (hostname, sizeof (hostname))) < 0)
 		snprintf (hostname, sizeof (hostname), "unknown");
 
 	if (port > 80) {
-		snprintf (msg, sizeof (msg), "cddb hello %s %s %s %s\r\n\r\n", username, hostname,PACKAGE, VERSION);
+		n = snprintf (msg, sizeof (msg), "cddb hello %s %s %s %s\r\n\r\n",
+			username, hostname, PACKAGE, VERSION);
+		if (n < 0 || (size_t)n >= sizeof (msg)) {
+			alsaplayer_error ("CDDB: hello message too long\n");
+			close (server_fd);
+			return NULL;
+		}
 
 		answer = send_to_server (server_fd, msg);
 		if (! answer)
@@ -637,14 +650,17 @@ cddb_lookup (const char *address, const char *char_port, int discID, struct cd_t
 		}
 		separator=' ';
 	}
-	/* set another settings before querying the CDDB database */
+	/* Build the space/plus-separated list of track frame offsets. */
 	tmpbuf[0] = '\0';
 	for (i = 0; i < tl->max; i++)
 	{
-		/* put the block offset of the starting location of each track in a string */
-		//snprintf (offsets, sizeof (offsets), "%s %d ", tmpbuf,
-		snprintf (offsets, sizeof (offsets), "%s%c%d", tmpbuf, separator,
+		n = snprintf (offsets, sizeof (offsets), "%s%c%d", tmpbuf, separator,
 				tl->l_frame[i] + (75 * (tl->l_sec[i] + (60 * tl->l_min[i]))));
+		if (n < 0 || (size_t)n >= sizeof (offsets)) {
+			alsaplayer_error ("CDDB: too many tracks for offset string\n");
+			close (server_fd);
+			return NULL;
+		}
 		ap_strlcpy (tmpbuf, offsets, sizeof (tmpbuf));
 		counter += tl->l_frame[i] + (75 * tl->l_sec[i] + (60 * tl->l_min[i]));
 	}
@@ -653,9 +669,18 @@ cddb_lookup (const char *address, const char *char_port, int discID, struct cd_t
 
 	/* send it */
 	if (port > 80)
-		snprintf (msg, sizeof (msg), "cddb query %08x %d %s %d\r\n", discID, tl->max, offsets, total_secs);
+		n = snprintf (msg, sizeof (msg), "cddb query %08x %d %s %d\r\n",
+			discID, tl->max, offsets, total_secs);
 	else
-		snprintf (msg, sizeof (msg), "GET /~cddb/cddb.cgi?cmd=cddb+query+%08x+%d%s+%d&hello=%s+%s+%s+%s&proto=6 HTTP/1.0\r\n\r\n", discID, tl->max, offsets, total_secs, username, hostname,PACKAGE, VERSION);
+		n = snprintf (msg, sizeof (msg),
+			"GET /~cddb/cddb.cgi?cmd=cddb+query+%08x+%d%s+%d&hello=%s+%s+%s+%s&proto=6 HTTP/1.0\r\n\r\n",
+			discID, tl->max, offsets, total_secs,
+			username, hostname, PACKAGE, VERSION);
+	if (n < 0 || (size_t)n >= sizeof (msg)) {
+		alsaplayer_error ("CDDB: query message too long\n");
+		close (server_fd);
+		return NULL;
+	}
 
 	if (answer)
 		free(answer);
