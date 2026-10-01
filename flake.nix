@@ -55,7 +55,7 @@
 
             buildInputs = with pkgs; [
               alsa-lib
-              gtk2
+              gtk3
               glib
               libjack2
               libmad
@@ -74,7 +74,7 @@
             configureFlags = [
               "--enable-alsa"
               "--enable-jack"
-              "--enable-gtk2"
+              "--enable-gtk3"
               "--enable-mad"
               "--enable-flac"
               "--enable-oggvorbis"

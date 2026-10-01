@@ -1,1 +1,1 @@
-SUBDIRS = gtk2 text daemon xosd
+SUBDIRS = gtk3 text daemon xosd

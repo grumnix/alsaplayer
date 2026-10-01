@@ -93,7 +93,7 @@ dnl alsaplayer control variables and their default values
 dnl this config procedure shamelessly stolen from libmikmod
 dnl =======================================================
 
-have_gtk2=no
+have_gtk3=no
 have_glib=no
 have_opengl=no
 have_oggvorbis=no
@@ -189,7 +189,7 @@ dnl ================
 dnl Some input stuff
 dnl ================
 if test "$have_glib" = "no" ; then
-	have_gtk2=no
+	have_gtk3=no
 fi
 
 if test "$have_ogg" = "yes" ; then
@@ -303,18 +303,18 @@ AC_SUBST(GLIB2_LIBS)
 AC_SUBST(GLIB2_CFLAGS)
 
 dnl ==========
-dnl GTK2 stuff
+dnl GTK3 stuff
 dnl ==========
 
-PKG_CHECK_MODULES(GTK2, gtk+-2.0 >= 2.8.0 gthread-2.0 >= 2.0.3 pango, have_gtk2=yes, have_gtk2=no)
-AC_SUBST(GTK2_LIBS)
-AC_SUBST(GTK2_CFLAGS)
+PKG_CHECK_MODULES(GTK3, gtk+-3.0 >= 3.0.0, have_gtk3=yes, have_gtk3=no)
+AC_SUBST(GTK3_LIBS)
+AC_SUBST(GTK3_CFLAGS)
 
 dnl ================
-dnl GTK2 for systray
+dnl GTK3 for systray (GtkStatusIcon deprecated but available)
 dnl ================
 
-PKG_CHECK_MODULES(GTK2, gtk+-2.0 >= 2.10.0 gthread-2.0 >= 2.0.3 pango, can_systray=yes, can_systray=no)
+PKG_CHECK_MODULES(GTK3, gtk+-3.0 >= 3.0.0, can_systray=yes, can_systray=no)
 
 AC_ARG_ENABLE(systray,
 	AS_HELP_STRING([--enable-systray],[Enable SysTray icon (default=no)]),,
@@ -334,7 +334,7 @@ AM_CONDITIONAL(HAVE_SYSTRAY,test "x$have_systray" = "xyes")
 
 if test "$enable_systray" = yes; then
     if test "$have_systray" = no; then
-    echo Systray support need gtk+>=2.10.n
+    echo Systray support needs GTK3
     else
     echo Experimental systray support will be compiled
     fi
@@ -450,9 +450,9 @@ AC_ARG_ENABLE(sgi,
 	AS_HELP_STRING([--enable-sgi],[Enable SGI driver (default=yes)]),
 	[if test "$enableval" = "no" ; then have_sgi=no ; fi])
 
-AC_ARG_ENABLE(gtk2,
-	AS_HELP_STRING([--enable-gtk2],[Enable GTK2 graphical interface (default=yes)]),
-	[if test "$enableval" = "no" ; then have_gtk2=no ; fi])
+AC_ARG_ENABLE(gtk3,
+	AS_HELP_STRING([--enable-gtk3],[Enable GTK3 graphical interface (default=yes)]),
+	[if test "$enableval" = "no" ; then have_gtk3=no ; fi])
 
 AC_ARG_ENABLE(nas,
 	AS_HELP_STRING([--enable-nas],[Enable NAS driver (default=yes)]),
@@ -480,7 +480,7 @@ AM_CONDITIONAL(HAVE_SGI, test "x$have_sgi" = xyes)
 AM_CONDITIONAL(HAVE_NAS, test "x$have_nas" = xyes)
 AM_CONDITIONAL(HAVE_LINUX_CDROM,test "x$ac_cv_header_linux_cdrom_h" = xyes)
 AM_CONDITIONAL(HAVE_GLIB2, test "x$have_glib2" = xyes)
-AM_CONDITIONAL(HAVE_GTK2, test "x$have_gtk2" = xyes)
+AM_CONDITIONAL(HAVE_GTK3, test "x$have_gtk3" = xyes)
 AM_CONDITIONAL(HAVE_MIKMOD,test "x$have_mikmod" = xyes)
 AM_CONDITIONAL(HAVE_SYSTRAY,test "x$have_systray" = xyes)
 
@@ -500,7 +500,7 @@ AM_CONDITIONAL(ARCH_586,test "$ARCH_TYPE" = "i586")
 AM_CONDITIONAL(ARCH_686,test "$ARCH_TYPE" = "i686")
 AM_CONDITIONAL(ARCH_PPC,test "$ARCH_TYPE" = "ppc")
 AM_CONDITIONAL(ARCH_ULTRA,test "$ARCH_TYPE" = "sun4u")
-dnl cruft to satisfy gtk2s Makefile. Leave it in for now
+dnl gtk3 interface
 AM_CONDITIONAL(BUILD_EXTERNAL, test "a" = "b")
 
 test_cflags="-O2 -funroll-loops -finline-functions -ffast-math -Wall -Wextra -Wshadow"
@@ -518,7 +518,7 @@ for f in $test_cflags ; do
 AC_LANG_POP
 
 AP_DEFINE_CONDITIONAL(HAVE_GLIB2, test "$have_glib2" = "yes", [Define if we have glib2])
-AP_DEFINE_CONDITIONAL(HAVE_GTK2, test "$have_gtk2" = "yes", [Define if we have gtk2])
+AP_DEFINE_CONDITIONAL(HAVE_GTK3, test "$have_gtk3" = "yes", [Define if we have gtk3])
 
 dnl ===============
 dnl Debugging stuff
@@ -587,8 +587,8 @@ alsaplayer.pc
 alsaplayer.spec
 app/Makefile
 interface/Makefile
-interface/gtk2/Makefile
-interface/gtk2/pixmaps/Makefile
+interface/gtk3/Makefile
+interface/gtk3/pixmaps/Makefile
 interface/text/Makefile
 interface/daemon/Makefile
 interface/xosd/Makefile
@@ -635,7 +635,7 @@ Configuration:
   Install path:                       ${prefix}
   Use libmad shared library:          ${have_libmad}
   Enable libid3tag support:           ${use_libid3tag}
-  Build GTK2 interface:               ${have_gtk2}
+  Build GTK3 interface:               ${have_gtk3}
   Build XOSD interface:               ${have_xosd}
   Build OpenGL based visual plugins:  ${have_opengl}
   Build alsa output plugin:           ${have_alsa}

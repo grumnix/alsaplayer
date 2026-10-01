@@ -34,7 +34,8 @@ Top-level layout (checked-in tree ≈ **5.8 MB**; **`attic/` alone ≈ 3.0 M
 | `app/` | Core player (Main, CorePlayer, Playlist, AlsaNode, …) | yes |
 | `alsaplayer/` | Public headers / plugin API | installed headers |
 | `libalsaplayer/` | Control-socket client library | yes |
-| `interface/` | UI plugins: **gtk2**, text, daemon, xosd | conditional |
+| `interface/` | UI plugins: **gtk3** (ported from gtk2), text, daemon, xosd | conditional |
+| `interface/gtk2/` | Original GTK2 UI sources (not built) | **no** |
 | `input/` | Decoders: mad, flac, vorbis, mikmod, sndfile, cdda | conditional |
 | `output/` | Backends: alsa, jack, oss, null, **esound**, nas, sgi, sparc | conditional |
 | `reader/` | file + http readers | yes |
@@ -135,7 +136,7 @@ These are not safe to delete without behavior analysis.
 
 ## Active plugin map (what actually matters)
 
-**Interfaces:** gtk2 (primary), text, daemon, xosd (if libxosd).  
+**Interfaces:** **gtk3** (primary; ported from gtk2), text, daemon, xosd (if libxosd). GTK2 sources remain under `interface/gtk2/` but are not in `SUBDIRS`.  
 **Inputs:** mad (libmad), flac, vorbis, mikmod, sndfile, cdda (`linux/cdrom.h`).  
 **Outputs:** alsa, jack, oss, null; others niche.  
 **Readers:** file, http.  
@@ -154,3 +155,22 @@ README still mentions an older mpg123-based MPEG plugin as being phased out in f
 ## Handoff
 
 See **TODO.md** for flake status and next build/verify steps.
+
+
+## GTK3 UI port
+
+The active GUI is **`interface/gtk3/`**, derived from `interface/gtk2/`.
+
+Mechanical / API changes applied:
+
+- `gtk_box_new` / `gtk_scale_new` with orientation (replacing hbox/vbox/hscale)
+- Tooltips via `gtk_widget_set_tooltip_text` (no `GtkTooltips`)
+- Stock items → icon names / mnemonics
+- `gtk_menu_shell_append`, `gtk_dialog_get_content_area`
+- `GDK_KEY_*` keysyms; removed `GDK_THREADS_*`, `gtk_exit`, `gtk_set_locale`, `gdk_rgb_init`, `gtk_rc_parse`
+- Style: `gtk_widget_override_{color,background_color,font}` (deprecated but functional on GTK3)
+- Systray still uses `GtkStatusIcon` (deprecated in 3.14, absent in GTK4)
+
+`configure.ac` checks `gtk+-3.0`; flag `--enable-gtk3`. Flake depends on `gtk3`.
+
+Known follow-ups: replace override_* with CSS providers; migrate off StatusIcon; verify DnD and file chooser on GTK 3.24+.

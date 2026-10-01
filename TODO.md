@@ -7,6 +7,8 @@
 
 ## Done
 
+- [x] Port GUI from GTK2 to GTK3 (`interface/gtk3/`, configure `--enable-gtk3`, flake uses `gtk3`)
+
 - [x] Add initial `flake.nix` / `flake.lock` (commit bbd6b69)
 - [x] Move source to `self` (no external source input)
 - [x] Fix version extraction without Nix ERE (`lib.splitString`)
@@ -14,6 +16,9 @@
 - [x] Document source tree + dead code in **AGENTS.md** (attic ~half the tree, `old_playlist.h`, obsolete m4, niche outputs)
 
 ## Open
+
+- [ ] Build/run GTK3 UI: `nix build -L .` and manual smoke test
+- [ ] Fix any remaining GTK3 deprecation warnings (override_* → CSS, StatusIcon)
 
 - [ ] Confirm `nix build -L .` succeeds
 - [ ] Confirm plugins under `$out/lib/alsaplayer` and runtime discovery
