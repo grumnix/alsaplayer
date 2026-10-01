@@ -22,6 +22,22 @@ nix run
 ```
 
 Flake uses `self` as source. Version is parsed from `configure.ac` without regex (Nix ERE rejects `\[`).
+Package builds with **RelWithDebInfo**.
+
+### Develop shell
+
+```bash
+nix develop
+alsaplayer-configure   # Debug cmake into $PROJECT_BUILD_DIR (default /tmp/alsaplayer-build)
+alsaplayer-build       # configure if needed, build, stage-install
+alsaplayer-run [args]  # build then run staged binary
+alsaplayer-run-gdb [args]  # build then gdb (auto-run; quit on clean exit; keep session on crash)
+```
+
+- Scripts require `PROJECT_SOURCE` (set by `shellHook` to `$PWD`); refuse to run outside the shell.
+- Reconfigure is forced when CMake cache source path, install prefix, or build type drift.
+- Stage install is required: `reader` / `CorePlayer` bake `ADDON_DIR` at compile time (not only `-p`).
+- Shell mirrors packaged wrapper env: `LD_LIBRARY_PATH`, `ALSAPLAYER_PLUGIN_DIR` under the stage prefix.
 
 ---
 
@@ -188,10 +204,11 @@ Known follow-ups: replace override_* with CSS providers; migrate off StatusIcon;
 Primary build path for the flake is **CMake** (autotools remain in-tree).
 
 ```bash
-cmake -B build -DENABLE_GTK3=ON -DENABLE_ALSA=ON
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_GTK3=ON -DENABLE_ALSA=ON
 cmake --build build
 cmake --install build
 ```
 
 Plugins install under `$prefix/lib/alsaplayer/{interface,input,output,reader,scopes2}/`.
 Default UI plugin name: `gtk3` (`libgtk3_interface.so`).
+Prefer `nix develop` + `alsaplayer-*` scripts for day-to-day work (see above).

@@ -13,6 +13,23 @@
         "aarch64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
+
+      # Shared feature flags for package and develop builds.
+      cmakeFeatureFlags = [
+        "-DENABLE_GTK3=ON"
+        "-DENABLE_ALSA=ON"
+        "-DENABLE_JACK=ON"
+        "-DENABLE_OSS=ON"
+        "-DENABLE_MAD=ON"
+        "-DENABLE_FLAC=ON"
+        "-DENABLE_VORBIS=ON"
+        "-DENABLE_MIKMOD=ON"
+        "-DENABLE_SNDFILE=ON"
+        "-DENABLE_CDDA=ON"
+        "-DENABLE_OPENGL=ON"
+        "-DENABLE_SYSTRAY=OFF"
+        "-DENABLE_NLS=OFF"
+      ];
     in
     {
       packages = forAllSystems (
@@ -32,6 +49,28 @@
               ver = builtins.head (lib.splitString "]" verField);
             in
             if ver != "" then ver else "0.99.82";
+
+          alsaplayerBuildInputs = with pkgs; [
+            alsa-lib
+            gtk3
+            glib
+            # glib's pkg-config Requires.private pulls in sysprof-capture-4
+            libsysprof-capture
+            libjack2
+            libmad
+            libid3tag
+            flac
+            libogg
+            libvorbis
+            libmikmod
+            libsndfile
+            # sndfile's pkg-config Requires.private pulls in opus
+            libopus
+            libGL
+            libGLU
+            libx11
+            zlib
+          ];
         in
         {
           default = pkgs.stdenv.mkDerivation {
@@ -46,42 +85,10 @@
               makeWrapper
             ];
 
-            buildInputs = with pkgs; [
-              alsa-lib
-              gtk3
-              glib
-              # glib's pkg-config Requires.private pulls in sysprof-capture-4
-              libsysprof-capture
-              libjack2
-              libmad
-              libid3tag
-              flac
-              libogg
-              libvorbis
-              libmikmod
-              libsndfile
-              # sndfile's pkg-config Requires.private pulls in opus
-              libopus
-              libGL
-              libGLU
-              libx11
-              zlib
-            ];
+            buildInputs = alsaplayerBuildInputs;
 
-            cmakeFlags = [
-              "-DENABLE_GTK3=ON"
-              "-DENABLE_ALSA=ON"
-              "-DENABLE_JACK=ON"
-              "-DENABLE_OSS=ON"
-              "-DENABLE_MAD=ON"
-              "-DENABLE_FLAC=ON"
-              "-DENABLE_VORBIS=ON"
-              "-DENABLE_MIKMOD=ON"
-              "-DENABLE_SNDFILE=ON"
-              "-DENABLE_CDDA=ON"
-              "-DENABLE_OPENGL=ON"
-              "-DENABLE_SYSTRAY=OFF"
-              "-DENABLE_NLS=OFF"
+            cmakeFlags = cmakeFeatureFlags ++ [
+              "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
             ];
 
             postInstall = ''
@@ -107,5 +114,151 @@
           program = "${self.packages.${system}.default}/bin/alsaplayer";
         };
       });
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          lib = pkgs.lib;
+
+          # Same deps as the package so configure/build match nix build.
+          alsaplayerBuildInputs = self.packages.${system}.default.buildInputs;
+
+          # Common preamble for all helper scripts.
+          # Requires PROJECT_SOURCE (set by shellHook). Clear error otherwise.
+          scriptPreamble = ''
+            set -euo pipefail
+            if [ -z "''${PROJECT_SOURCE:-}" ]; then
+              echo "error: PROJECT_SOURCE is unset." >&2
+              echo "  Enter the alsaplayer develop shell first:  nix develop" >&2
+              echo "  (scripts refuse to run outside that environment)" >&2
+              exit 1
+            fi
+            if [ ! -f "$PROJECT_SOURCE/CMakeLists.txt" ]; then
+              echo "error: PROJECT_SOURCE=$PROJECT_SOURCE has no CMakeLists.txt" >&2
+              exit 1
+            fi
+            BUILD_DIR="''${PROJECT_BUILD_DIR:-/tmp/alsaplayer-build}"
+            STAGE_DIR="$BUILD_DIR/stage"
+            CACHE="$BUILD_DIR/CMakeCache.txt"
+            BIN="$STAGE_DIR/bin/alsaplayer"
+          '';
+
+          # True when CMake must be re-run (missing cache, different source,
+          # different stage prefix, or non-Debug build type).
+          needReconfigureFn = ''
+            need_reconfigure() {
+              [ -f "$CACHE" ] || return 0
+              # Source tree moved / different checkout
+              local home
+              home=$(grep -E '^CMAKE_HOME_DIRECTORY:INTERNAL=' "$CACHE" | cut -d= -f2- || true)
+              [ "$home" = "$PROJECT_SOURCE" ] || return 0
+              # Stage install prefix must match so ADDON_DIR points at staged plugins
+              local prefix
+              prefix=$(grep -E '^CMAKE_INSTALL_PREFIX:PATH=' "$CACHE" | cut -d= -f2- || true)
+              [ "$prefix" = "$STAGE_DIR" ] || return 0
+              # Develop defaults to Debug
+              local btype
+              btype=$(grep -E '^CMAKE_BUILD_TYPE:STRING=' "$CACHE" | cut -d= -f2- || true)
+              [ "$btype" = "Debug" ] || return 0
+              return 1
+            }
+          '';
+
+          # Env for the unwrapped staged binary (mirrors postInstall wrapProgram).
+          # Reader/CorePlayer bake ADDON_DIR at compile time → stage install is required.
+          runEnv = ''
+            export LD_LIBRARY_PATH="$STAGE_DIR/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export ALSAPLAYER_PLUGIN_DIR="$STAGE_DIR/lib/alsaplayer"
+          '';
+
+          alsaplayer-configure = pkgs.writeShellScriptBin "alsaplayer-configure" ''
+            ${scriptPreamble}
+            ${needReconfigureFn}
+            mkdir -p "$BUILD_DIR"
+            if need_reconfigure; then
+              echo "configuring $PROJECT_SOURCE → $BUILD_DIR (Debug, stage=$STAGE_DIR)"
+              cmake -S "$PROJECT_SOURCE" -B "$BUILD_DIR" \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_INSTALL_PREFIX="$STAGE_DIR" \
+                ${lib.concatStringsSep " " cmakeFeatureFlags}
+            else
+              echo "cmake cache up to date ($BUILD_DIR)"
+            fi
+          '';
+
+          alsaplayer-build = pkgs.writeShellScriptBin "alsaplayer-build" ''
+            ${scriptPreamble}
+            ${needReconfigureFn}
+            mkdir -p "$BUILD_DIR"
+            if need_reconfigure; then
+              echo "configuring $PROJECT_SOURCE → $BUILD_DIR (Debug, stage=$STAGE_DIR)"
+              cmake -S "$PROJECT_SOURCE" -B "$BUILD_DIR" \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_INSTALL_PREFIX="$STAGE_DIR" \
+                ${lib.concatStringsSep " " cmakeFeatureFlags}
+            fi
+            cmake --build "$BUILD_DIR" -j"''${NIX_BUILD_CORES:-$(nproc)}"
+            # Stage so compile-time ADDON_DIR resolves to real plugins
+            cmake --install "$BUILD_DIR" --prefix "$STAGE_DIR"
+            echo "staged: $BIN"
+          '';
+
+          alsaplayer-run = pkgs.writeShellScriptBin "alsaplayer-run" ''
+            ${scriptPreamble}
+            # Build (and reconfigure if needed) before run
+            alsaplayer-build
+            ${runEnv}
+            echo "running: $BIN $*"
+            exec "$BIN" "$@"
+          '';
+
+          alsaplayer-run-gdb = pkgs.writeShellScriptBin "alsaplayer-run-gdb" ''
+            ${scriptPreamble}
+            alsaplayer-build
+            ${runEnv}
+            echo "gdb: $BIN $*"
+            # Auto-run; quit on clean exit; keep session (with backtrace) on failure
+            exec gdb -q \
+              -ex "set pagination off" \
+              -ex "set confirm off" \
+              -ex "run" \
+              -ex "if \$_exitcode == 0" \
+              -ex "  quit 0" \
+              -ex "end" \
+              -ex "echo \n*** abnormal exit / signal; backtrace:\n" \
+              -ex "bt" \
+              --args "$BIN" "$@"
+          '';
+        in
+        {
+          default = pkgs.mkShell {
+            inputsFrom = [ self.packages.${system}.default ];
+            packages = [
+              pkgs.cmake
+              pkgs.ninja
+              pkgs.pkg-config
+              pkgs.gdb
+              pkgs.ccache
+              alsaplayer-configure
+              alsaplayer-build
+              alsaplayer-run
+              alsaplayer-run-gdb
+            ];
+            shellHook = ''
+              export PROJECT_SOURCE="''${PROJECT_SOURCE:-$PWD}"
+              export PROJECT_BUILD_DIR="''${PROJECT_BUILD_DIR:-/tmp/alsaplayer-build}"
+              # Mirror packaged wrapper env for anything dlopen'd from the stage tree
+              # (set after build/install; harmless placeholders until first stage)
+              export LD_LIBRARY_PATH="''${PROJECT_BUILD_DIR}/stage/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+              export ALSAPLAYER_PLUGIN_DIR="''${PROJECT_BUILD_DIR}/stage/lib/alsaplayer"
+              echo "alsaplayer develop shell"
+              echo "  PROJECT_SOURCE=$PROJECT_SOURCE"
+              echo "  PROJECT_BUILD_DIR=$PROJECT_BUILD_DIR"
+              echo "  alsaplayer-configure | alsaplayer-build | alsaplayer-run | alsaplayer-run-gdb"
+            '';
+          };
+        }
+      );
     };
 }

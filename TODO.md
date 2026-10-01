@@ -3,7 +3,7 @@
 ## Current tip
 
 - Branch: `master` (fork of upstream alsaplayer)
-- Tip: `cab99b9` flake: add libsysprof-capture and libopus for pkg-config
+- Tip: develop shell with configure/build/run/gdb helpers
 - Goal: working Nix flake that builds alsaplayer from this tree
 - Base of this work line: `05ca204`
 
@@ -24,15 +24,20 @@
 - [x] Confirm `nix build -L .` succeeds
 - [x] Confirm plugins under `$out/lib/alsaplayer` (input, output, interface, reader, scopes2)
 - [x] `alsaplayer --help` reports default interface `gtk3`
-- [x] Clear compiler warnings (no silencing):
-  - FLAC null-this in meta/err callbacks → alsaplayer_error
-  - cdda CDDB snprintf truncation → larger msg buffer + return checks
-  - daemon/http write() unused result → check and handle
-  - message.c sscanf pattern buffer sizing
-  - flake: libsysprof-capture + libopus for pkg-config private deps
+- [x] Clear compiler warnings (no silencing)
+- [x] Develop shell: `alsaplayer-configure|build|run|run-gdb`
+  - PROJECT_SOURCE required (clear error outside shell)
+  - build-before-run; stage install for ADDON_DIR
+  - reconfigure on source/prefix/build-type drift
+  - Debug in develop; RelWithDebInfo in package
+  - gdb: auto-run, quit on clean exit, keep session + bt on failure
+  - mirror LD_LIBRARY_PATH / ALSAPLAYER_PLUGIN_DIR for staged plugins
 
 ## Open
 
+- [ ] **Bug:** `nix run .` → double free / SIGABRT when browsing files on a slow network drive
+  - Reproduce under `nix develop` + `alsaplayer-run-gdb`
+  - Likely path: GTK file chooser / uri-list / playlist load on slow FS
 - [ ] Manual smoke test of GTK3 UI (needs display / audio device)
 - [ ] Fix any remaining GTK3 deprecation warnings (override_* → CSS, StatusIcon)
 - [ ] Port scopes2/* (except opengl_spectrum) from gdk_draw_* to Cairo; re-enable in scopes2/Makefile.am (and CMake if needed)
@@ -41,7 +46,6 @@
 - [ ] Optionally `--enable-systray` / ENABLE_SYSTRAY
 - [ ] Optional outputs later: xosd, nas
 - [ ] Runtime plugin discovery smoke test beyond path layout
-- [ ] Re-run `nix build -L .` after warning fixes (local cmake build is clean)
 
 ## Notes
 
@@ -53,6 +57,12 @@
 
 ## Handoff
 
-Next optional work: GTK3 deprecation cleanup, Cairo port of remaining scopes, or tighter cleanSource.
-Local cmake build is warning-free after the fixes above.
-Bundle from base `05ca204` is cumulative through the warning cleanup.
+Reproduce the double-free with:
+
+```bash
+nix develop
+alsaplayer-run-gdb
+# then browse files on the slow network drive
+```
+
+Bundle from base `05ca204` is cumulative through the develop-shell work.
