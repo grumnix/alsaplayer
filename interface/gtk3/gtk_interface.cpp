@@ -386,8 +386,8 @@ gboolean release_event(GtkWidget *widget, GdkEvent *, gpointer data)
 	Playlist *pl = (Playlist *)data;
 	CorePlayer *p = pl->GetCorePlayer();
 
-	adj = GTK_RANGE(widget)->adjustment;
-	p->Seek((int)adj->value);
+	adj = gtk_range_get_adjustment(GTK_RANGE(widget));
+	p->Seek((int)gtk_adjustment_get_value(adj));
 	global_update = 1;
 
 	return FALSE;
@@ -399,7 +399,7 @@ gboolean button_release_event(GtkWidget *widget, GdkEvent *event, gpointer)
 		return FALSE;
 
 	GdkEventScroll *sevent = (GdkEventScroll *) event;
-	GtkAdjustment *adj = GTK_RANGE(widget)->adjustment;
+	GtkAdjustment *adj = gtk_range_get_adjustment(GTK_RANGE(widget));
 
 	gdouble value = gtk_adjustment_get_value(adj);
 	if ((sevent->direction == GDK_SCROLL_UP) || (sevent->direction == GDK_SCROLL_RIGHT)) {
@@ -421,7 +421,7 @@ void speed_cb(GtkWidget *widget, gpointer data)
 {
 	Playlist *pl = (Playlist *)data;
 	CorePlayer *p = pl->GetCorePlayer();
-	double val =  GTK_ADJUSTMENT(widget)->value;
+	double val =  gtk_adjustment_get_value(GTK_ADJUSTMENT(widget));
 	if (val < ZERO_PITCH_TRESH && val > -ZERO_PITCH_TRESH)
 		val = 0;
 	double speed = (double) p->GetSpeed() * 100.0;
@@ -451,7 +451,7 @@ void smoother(void *data)
 	}
 
 	if (adj) {
-		cur_val = adj->value;
+		cur_val = gtk_adjustment_get_value(adj);
 		while (!done) {
 			temp = cur_val - destination;
 			if (temp < 0.0) temp = -temp;
@@ -570,33 +570,33 @@ key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 			break;
 		case SPEED_UP_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "speed_scale"));
-			adj = GTK_RANGE(scale)->adjustment;
-			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(adj->value, 1));
+			adj = gtk_range_get_adjustment(GTK_RANGE(scale));
+			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(gtk_adjustment_get_value(adj), 1));
 			break;
 		case SPEED_DOWN_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "speed_scale"));
-			adj = GTK_RANGE(scale)->adjustment;
-			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(adj->value, -1));
+			adj = gtk_range_get_adjustment(GTK_RANGE(scale));
+			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(gtk_adjustment_get_value(adj), -1));
 			break;
 		case SPEED_COMMA_UP_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "speed_scale"));
-			adj = GTK_RANGE(scale)->adjustment;
-			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(adj->value, 0.234600103846));
+			adj = gtk_range_get_adjustment(GTK_RANGE(scale));
+			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(gtk_adjustment_get_value(adj), 0.234600103846));
 			break;
 		case SPEED_COMMA_DOWN_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "speed_scale"));
-			adj = GTK_RANGE(scale)->adjustment;
-			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(adj->value, -0.234600103846));
+			adj = gtk_range_get_adjustment(GTK_RANGE(scale));
+			gtk_adjustment_set_value(adj, EQ_TEMP_STEP(gtk_adjustment_get_value(adj), -0.234600103846));
 			break;
 		case VOL_UP_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "vol_scale"));
-      		adj = GTK_RANGE(scale)->adjustment;
-      		gtk_adjustment_set_value(adj, adj->value + 0.5);
+      		adj = gtk_range_get_adjustment(GTK_RANGE(scale));
+      		gtk_adjustment_set_value(adj, gtk_adjustment_get_value(adj) + 0.5);
 			break;
 		case VOL_DOWN_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "vol_scale"));
-      		adj = GTK_RANGE(scale)->adjustment;
-      		gtk_adjustment_set_value(adj, adj->value - 0.5);
+      		adj = gtk_range_get_adjustment(GTK_RANGE(scale));
+      		gtk_adjustment_set_value(adj, gtk_adjustment_get_value(adj) - 0.5);
 			break;
 		case LOOP_KEY:
 			scale = GTK_WIDGET(g_object_get_data(G_OBJECT(widget), "pos_scale"));
@@ -636,8 +636,8 @@ void forward_skip_cb(GtkWidget *, gpointer data)
 	Playlist *pl = (Playlist *)ustr->data;
 	CorePlayer *p = pl->GetCorePlayer();
 
-	adj = GTK_RANGE(data)->adjustment;
-	p->Seek((int)adj->value + 5 * FPS_HACK);
+	adj = gtk_range_get_adjustment(GTK_RANGE(data));
+	p->Seek((int)gtk_adjustment_get_value(adj) + 5 * FPS_HACK);
 	global_update = 1;
 }
 
@@ -648,8 +648,8 @@ void reverse_skip_cb(GtkWidget *, gpointer data)
 	Playlist *pl = (Playlist *)ustr->data;
 	CorePlayer *p = pl->GetCorePlayer();
 
-	adj = GTK_RANGE(data)->adjustment;
-	p->Seek((int)adj->value - 5 * FPS_HACK);
+	adj = gtk_range_get_adjustment(GTK_RANGE(data));
+	p->Seek((int)gtk_adjustment_get_value(adj) - 5 * FPS_HACK);
 	global_update = 1;
 }
 
@@ -659,7 +659,7 @@ void forward_play_cb(GtkWidget *, gpointer data)
 	int smooth_trans;
 
 	smooth_trans = prefs_get_bool(ap_prefs, "gtk2_interface", "smooth_transition", 0);
-	adj = GTK_RANGE(data)->adjustment;
+	adj = gtk_range_get_adjustment(GTK_RANGE(data));
 
 	if (smooth_trans) {
 		destination = 100;
@@ -679,7 +679,7 @@ void reverse_play_cb(GtkWidget *, gpointer data)
 
 	smooth_trans = prefs_get_bool(ap_prefs, "gtk2_interface", "smooth_transition", 0);
 
-	adj = GTK_RANGE(data)->adjustment;
+	adj = gtk_range_get_adjustment(GTK_RANGE(data));
 
 	if (smooth_trans) {
 		destination = -100.0;
@@ -697,13 +697,13 @@ void pause_cb(GtkWidget *, gpointer data)
 	GtkAdjustment *adj;
 	int smooth_trans;
 
-	adj = GTK_RANGE(data)->adjustment;
+	adj = gtk_range_get_adjustment(GTK_RANGE(data));
 
 	smooth_trans = prefs_get_bool(ap_prefs, "gtk2_interface", "smooth_transition", 0);
 
 	if (smooth_trans) {
-//		if (destination <= adj->value && destination != 0.0) {
-		if (adj->value != 0.0) {
+//		if (destination <= gtk_adjustment_get_value(adj) && destination != 0.0) {
+		if (gtk_adjustment_get_value(adj) != 0.0) {
 			speed_pan_position = gtk_adjustment_get_value(adj);
 			destination = 0.0;
 		} else {
@@ -713,7 +713,7 @@ void pause_cb(GtkWidget *, gpointer data)
 			(void * (*)(void *))smoother, adj);
 		pthread_detach(smoother_thread);
 	} else {
-		if (adj->value != 0.0) {
+		if (gtk_adjustment_get_value(adj) != 0.0) {
 			speed_pan_position = gtk_adjustment_get_value(adj);
 			gtk_adjustment_set_value(adj, 0.0);
 		} else {
@@ -776,8 +776,8 @@ void volume_cb(GtkWidget *widget, gpointer data)
 
 
 	double volume = (double) p->GetVolume() * 100.0;
-	if ((int)volume != (int)adj->value) {
-		p->SetVolume(  (float) adj->value / 100.0);
+	if ((int)volume != (int)gtk_adjustment_get_value(adj)) {
+		p->SetVolume(  (float) gtk_adjustment_get_value(adj) / 100.0);
 	}
 	}
 }
@@ -791,7 +791,7 @@ void pan_cb(GtkWidget *widget, gpointer data)
 	int val;
 
 	if (p) {
-		val = (int)adj->value;
+		val = (int)gtk_adjustment_get_value(adj);
 		if (val > MIN_BAL_TRESH && val < MAX_BAL_TRESH) val = BAL_CENTER;
 		p->SetPan((float)(val) / 100.0 - 1.0);
 	}
@@ -804,7 +804,6 @@ gint indicator_callback(gpointer, int locking)
 	Playlist *pl;
 	CorePlayer *player;
 	GtkAdjustment *adj;
-	GdkColor color;
 	stream_info info;
 	char title_string[256];
 	char str[60];
@@ -820,51 +819,40 @@ gint indicator_callback(gpointer, int locking)
 	pl = (Playlist *)ustr->data;
 	player = pl->GetCorePlayer();
 
-	adj = GTK_RANGE(ustr->speed_scale)->adjustment;
+	adj = gtk_range_get_adjustment(GTK_RANGE(ustr->speed_scale));
 	double speed = (double) player->GetSpeed() * 100.0;
 	if ((int)speed != (int)gtk_adjustment_get_value(adj))
 	{
-		if (locking)
 		gtk_adjustment_set_value(adj, speed);
-		if (locking)
 	}
-	adj = GTK_RANGE(ustr->vol_scale)->adjustment;
+	adj = gtk_range_get_adjustment(GTK_RANGE(ustr->vol_scale));
 	double volume = (double) player->GetVolume() * 100.0;
 	if ((int)volume != (int)gtk_adjustment_get_value(adj))
 	{
-		if (locking)
 		gtk_adjustment_set_value(adj, volume);
-		if (locking)
 	}
-	adj = GTK_RANGE(ustr->pos_scale)->adjustment;
+	adj = gtk_range_get_adjustment(GTK_RANGE(ustr->pos_scale));
 	if (player->CanSeek()) {
-		adj->lower = 0;
-		adj->upper = player->GetBlocks() - 32; // HACK!!
-		if (locking)
+		gtk_adjustment_set_lower(adj, 0);
+		gtk_adjustment_set_upper(adj, player->GetBlocks() - 32); // HACK!!
 		gtk_widget_set_sensitive(GTK_WIDGET(ustr->pos_scale), true);
-		if (locking)
 	} else {
-		adj->lower = adj->upper = 0;
-		if (locking)
+		gtk_adjustment_set_lower(adj, 0); gtk_adjustment_set_upper(adj, 0);
 		gtk_adjustment_set_value(adj, 0);
 		gtk_widget_set_sensitive(GTK_WIDGET(ustr->pos_scale), false);
-		if (locking)
 	}
 	memset(&info, 0, sizeof(stream_info));
 
-	color.red = color.blue = color.green = 0;
-	if (locking)
-	gdk_color_alloc(gdk_colormap_get_system(), &color);
-	if (locking)
+	/* GdkColor colormap alloc removed in GTK3 */
 #ifdef SUBSECOND_DISPLAY
 	sr = player->GetSampleRate();
 #endif
 	nr_blocks = player->GetBlocks();
 	if (player->IsActive()) {
 		int pos;
-		pos = global_update ? player->GetPosition() : (int) adj->value;
+		pos = global_update ? player->GetPosition() : (int) gtk_adjustment_get_value(adj);
 		secs = global_update ?
-						player->GetCurrentTime() : player->GetCurrentTime((int) adj->value);
+						player->GetCurrentTime() : player->GetCurrentTime((int) gtk_adjustment_get_value(adj));
 		c_min = secs / 6000;
 		c_sec = (secs % 6000) / 100;
 #ifdef SUBSECOND_DISPLAY
@@ -875,9 +863,7 @@ gint indicator_callback(gpointer, int locking)
 			t_min = secs / 6000;
 			t_sec = (secs % 6000) / 100;
 		}
-		if (locking)
 		gtk_adjustment_set_value(adj, pos);
-		if (locking)
 		player->GetStreamInfo(&info);
 	} else {
 		t_min = 0;
@@ -902,11 +888,7 @@ gint indicator_callback(gpointer, int locking)
 			snprintf(str, sizeof (str), "%02ld:%02ld / %02ld:%02ld", c_min, c_sec, t_min, t_sec);
 #endif
 	}
-	if (locking)
 	infowindow->set_position(str);
-	if (locking)
-
-	if (locking)
 	infowindow->set_format(info.stream_type);
 	if (strlen(info.artist)) {
 		snprintf(title_string, sizeof (title_string), "%s - %s", info.artist, info.title);
@@ -931,9 +913,6 @@ gint indicator_callback(gpointer, int locking)
 				gtk_window_set_title(GTK_WINDOW(gtk_widget_get_toplevel(g_playlist_window->GetWindow())), info.path);
 		}
 	}
-
-	if (locking)
-
 
 	return true;
 }
@@ -1118,7 +1097,7 @@ create_main_menu(GtkWidget *main_window)
 void
 loop_cb(GtkWidget *widget, gpointer data)
 {
-	GtkAdjustment *adj = GTK_RANGE(data)->adjustment;
+	GtkAdjustment *adj = gtk_range_get_adjustment(GTK_RANGE(data));
 	update_struct *ustr = &global_ustr;
 	Playlist *pl = (Playlist *)ustr->data;
 	loop_struct *loop = &global_loop;
@@ -1137,7 +1116,7 @@ loop_cb(GtkWidget *widget, gpointer data)
 			/* tooltip removed */;
 		}
 			loop->track = pl->GetCurrent();
-			loop->start = adj->value;
+			loop->start = gtk_adjustment_get_value(adj);
 			loop->state = LOOP_START_SET;
 			break;
 		case LOOP_START_SET:
@@ -1150,7 +1129,7 @@ loop_cb(GtkWidget *widget, gpointer data)
 			/* tooltip removed */;
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), TRUE);
 		}
-			loop->end = adj->value;
+			loop->end = gtk_adjustment_get_value(adj);
 			loop->state = LOOP_ON;
 			pthread_create(&looper_thread, NULL,
 					(void * (*)(void *))looper, adj);
@@ -1335,7 +1314,7 @@ create_main_window (Playlist *pl)
 	g_object_set_data(G_OBJECT(main_window), "pos_scale", pos_scale);
 	gtk_box_pack_start (GTK_BOX (main_box), pos_scale, FALSE, FALSE, 0);
 	gtk_scale_set_draw_value (GTK_SCALE (pos_scale), FALSE);
-	gtk_widget_set_tooltip_text(pos_scale, _("Position control")));
+	gtk_widget_set_tooltip_text(pos_scale, _("Position control"));
 
 	button_scale_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_start (GTK_BOX (main_box), button_scale_box, FALSE, FALSE, 0);
@@ -1351,7 +1330,6 @@ create_main_window (Playlist *pl)
 
 	loop_button = gtk_toggle_button_new();
 	g_object_set_data(G_OBJECT(main_window), "loop_button", loop_button);
-	g_object_set_data(G_OBJECT(loop_button), "tooltips", tooltips);
 //	pic = get_image_from_xpm(loop_xpm);
 	pic = gtk_image_new_from_icon_name("view-refresh", GTK_ICON_SIZE_MENU);
 	gtk_button_set_image(GTK_BUTTON(loop_button), pic);
@@ -1361,7 +1339,6 @@ create_main_window (Playlist *pl)
 
 	looper_button = gtk_toggle_button_new();
 	g_object_set_data(G_OBJECT(main_window), "looper_button", looper_button);
-	g_object_set_data(G_OBJECT(looper_button), "tooltips", tooltips);
 //	pic = get_image_from_xpm(looper_xpm);
 	pic = gtk_image_new_from_icon_name("go-last", GTK_ICON_SIZE_MENU);
 	gtk_button_set_image(GTK_BUTTON(looper_button), pic);
@@ -1383,7 +1360,7 @@ create_main_window (Playlist *pl)
 	gtk_container_add(GTK_CONTAINER(prev_button), pic);
 	gtk_button_set_relief(GTK_BUTTON(prev_button), GTK_RELIEF_NONE);
 	gtk_box_pack_start (GTK_BOX (button_box), prev_button, FALSE, FALSE, 0);
-	gtk_widget_set_tooltip_text(prev_button, _("Previous track")));
+	gtk_widget_set_tooltip_text(prev_button, _("Previous track"));
 
 	play_button = gtk_button_new ();
 //	pic = get_image_from_xpm(play_xpm);
@@ -1391,7 +1368,7 @@ create_main_window (Playlist *pl)
 	gtk_container_add(GTK_CONTAINER(play_button), pic);
 	gtk_button_set_relief(GTK_BUTTON(play_button), GTK_RELIEF_NONE);
 	gtk_box_pack_start (GTK_BOX (button_box), play_button, FALSE, FALSE, 0);
-	gtk_widget_set_tooltip_text(play_button, _("Play")));
+	gtk_widget_set_tooltip_text(play_button, _("Play"));
 
 	stop_button = gtk_button_new ();
 	g_object_set_data(G_OBJECT(main_window), "stop_button", stop_button);
@@ -1408,7 +1385,7 @@ create_main_window (Playlist *pl)
 	gtk_container_add(GTK_CONTAINER(next_button), pic);
 	gtk_button_set_relief(GTK_BUTTON(next_button), GTK_RELIEF_NONE);
 	gtk_box_pack_start (GTK_BOX (button_box), next_button, FALSE, TRUE, 0);
-	gtk_widget_set_tooltip_text(next_button, _("Next track")));
+	gtk_widget_set_tooltip_text(next_button, _("Next track"));
 
 	playlist_button = gtk_button_new ();
 //	pic = get_image_from_xpm(playlist_xpm);
@@ -1416,7 +1393,7 @@ create_main_window (Playlist *pl)
 	gtk_container_add(GTK_CONTAINER(playlist_button), pic);
 	gtk_button_set_relief(GTK_BUTTON(playlist_button), GTK_RELIEF_NONE);
 	gtk_box_pack_start (GTK_BOX (button_box), playlist_button, FALSE, TRUE, 0);
-	gtk_widget_set_tooltip_text(playlist_button, _("Playlist window")));
+	gtk_widget_set_tooltip_text(playlist_button, _("Playlist window"));
 
 	audio_control_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 	gtk_box_pack_start (GTK_BOX (button_scale_box), audio_control_box, TRUE, TRUE, 0);
@@ -1435,7 +1412,7 @@ create_main_window (Playlist *pl)
 	gtk_container_add(GTK_CONTAINER(reverse_button), pic);
 	gtk_button_set_relief(GTK_BUTTON(reverse_button), GTK_RELIEF_NONE);
 	gtk_box_pack_start (GTK_BOX (pitch_box), reverse_button, FALSE, FALSE, 0);
-	gtk_widget_set_tooltip_text(reverse_button, _("Normal speed backwards")));
+	gtk_widget_set_tooltip_text(reverse_button, _("Normal speed backwards"));
 
 	pause_button = gtk_button_new ();
 //	pic = get_image_from_xpm(pause_xpm);
@@ -1451,13 +1428,13 @@ create_main_window (Playlist *pl)
 	gtk_container_add(GTK_CONTAINER(forward_button), pic);
 	gtk_button_set_relief(GTK_BUTTON(forward_button), GTK_RELIEF_NONE);
 	gtk_box_pack_start (GTK_BOX (pitch_box), forward_button, FALSE, FALSE, 0);
-	gtk_widget_set_tooltip_text(forward_button, _("Normal speed")));
+	gtk_widget_set_tooltip_text(forward_button, _("Normal speed"));
 
 	speed_scale = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, GTK_ADJUSTMENT (gtk_adjustment_new (100, -400, 401, 1, 1, 1)));
 	g_object_set_data(G_OBJECT(main_window), "speed_scale", speed_scale);
 	gtk_box_pack_start (GTK_BOX (pitch_box), speed_scale, TRUE, TRUE, 0);
 	gtk_scale_set_draw_value (GTK_SCALE (speed_scale), FALSE);
-	gtk_widget_set_tooltip_text(speed_scale, _("Speed control")));
+	gtk_widget_set_tooltip_text(speed_scale, _("Speed control"));
 
 	bal_vol_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_start (GTK_BOX (audio_control_box), bal_vol_box, TRUE, FALSE, 0);
@@ -1474,10 +1451,10 @@ create_main_window (Playlist *pl)
 
 	bal_scale = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, GTK_ADJUSTMENT (gtk_adjustment_new (100, 0, 201, 1, 1, 1)));
 	g_object_set_data(G_OBJECT(main_window), "bal_scale", bal_scale);
-	gtk_adjustment_set_value(GTK_RANGE(bal_scale)->adjustment, 100.0);
+	gtk_adjustment_set_value(gtk_range_get_adjustment(GTK_RANGE(bal_scale)), 100.0);
 	gtk_box_pack_start (GTK_BOX (bal_box), bal_scale, TRUE, TRUE, 0);
 	gtk_scale_set_draw_value (GTK_SCALE (bal_scale), FALSE);
-	gtk_widget_set_tooltip_text(bal_scale, _("Balance")));
+	gtk_widget_set_tooltip_text(bal_scale, _("Balance"));
 
 	volume_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_start (GTK_BOX (bal_vol_box), volume_box, TRUE, TRUE, 0);
@@ -1495,7 +1472,7 @@ create_main_window (Playlist *pl)
 	g_object_set_data(G_OBJECT(main_window), "vol_scale", vol_scale);
 	gtk_scale_set_draw_value (GTK_SCALE (vol_scale), FALSE);
 	gtk_box_pack_start (GTK_BOX (volume_box), vol_scale, TRUE, TRUE, 0);
-	gtk_widget_set_tooltip_text(vol_scale, _("Volume")));
+	gtk_widget_set_tooltip_text(vol_scale, _("Volume"));
 
 	g_playlist_window = new PlaylistWindow(g_playlist);
 	g_object_set_data(G_OBJECT(main_window), "playlist_window", g_playlist_window);
@@ -1563,11 +1540,11 @@ create_main_window (Playlist *pl)
 	g_signal_connect(G_OBJECT(pos_scale), "button_release_event", G_CALLBACK(release_event), g_playlist);
 	g_signal_connect(G_OBJECT(pos_scale), "button_press_event", G_CALLBACK(press_event), NULL);
 	g_signal_connect(G_OBJECT(pos_scale), "motion_notify_event", G_CALLBACK(move_event), NULL);
-	g_signal_connect(G_OBJECT(GTK_RANGE(speed_scale)->adjustment), "value_changed", G_CALLBACK(speed_cb), g_playlist);
+	g_signal_connect(G_OBJECT(gtk_range_get_adjustment(GTK_RANGE(speed_scale))), "value_changed", G_CALLBACK(speed_cb), g_playlist);
 	g_signal_connect(G_OBJECT(speed_scale), "event", G_CALLBACK(button_release_event), NULL);
 	g_signal_connect(G_OBJECT(speed_scale), "event", G_CALLBACK(button_release_event), NULL);
 	g_signal_connect(G_OBJECT(cd_button), "button_press_event", G_CALLBACK(alsaplayer_button_press), (gpointer) menu);
-	g_signal_connect(G_OBJECT(GTK_RANGE(bal_scale)->adjustment), "value_changed", G_CALLBACK(pan_cb), g_playlist);
+	g_signal_connect(G_OBJECT(gtk_range_get_adjustment(GTK_RANGE(bal_scale))), "value_changed", G_CALLBACK(pan_cb), g_playlist);
 	g_signal_connect(G_OBJECT(bal_scale), "event", G_CALLBACK(button_release_event), NULL);
 	g_signal_connect(G_OBJECT(loop_button), "clicked", G_CALLBACK(loop_button_clicked), (gpointer)g_playlist);
 	g_signal_connect(G_OBJECT(loop_button), "button_press_event", G_CALLBACK(alsaplayer_button_press), (gpointer) menu);
