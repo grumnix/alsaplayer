@@ -281,7 +281,7 @@ static void help()
 		"\n"
 		"  -c,--config file        use given config file for this session\n"
 		"  -h,--help               print this help message\n"
-		"  -i,--interface iface    use specific interface [default=gtk2]. choices:\n");
+		"  -i,--interface iface    use specific interface [default=gtk3]. choices:\n");
 	printf(
 		"                          [ ");
 	list_available_plugins("interface");
@@ -1018,13 +1018,12 @@ int main(int argc, char **argv)
 		}
 	} else {
 		const char *interface = prefs_get_string
-			(ap_prefs, "main", "default_interface", "gtk2");
-		// if we're trying to use the old gtk-1 interface, use gtk-2 instead
-		if (strcmp (interface, "gtk") == 0)
-			interface = "gtk2";
-				// if we're trying to use the gtk interface, but we have no
-		// $DISPLAY, use the text interface instead
-		if (strcmp (interface, "gtk2") == 0 && !getenv("DISPLAY"))
+			(ap_prefs, "main", "default_interface", "gtk3");
+		// gtk / gtk2 prefs → gtk3 (GTK2 UI is no longer built)
+		if (strcmp (interface, "gtk") == 0 || strcmp (interface, "gtk2") == 0)
+			interface = "gtk3";
+		// no $DISPLAY → text
+		if (strcmp (interface, "gtk3") == 0 && !getenv("DISPLAY"))
 			interface = "text";
 		if (!(interface_plugin_info = load_interface(interface))) {
 			if (!(interface_plugin_info = load_interface(prefs_get_string
