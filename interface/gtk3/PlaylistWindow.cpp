@@ -298,7 +298,7 @@ playlist_play_current(GtkWidget *tree, PlaylistWindow *playlist_window)
 
 		GList* data = gtk_tree_selection_get_selected_rows(selection, NULL);
 
-		selected = get_path_number((GtkTreePath *)gtk_selection_data_get_data(data));
+		selected = get_path_number((GtkTreePath *)data->data);
 
 		g_list_free(data);
 
