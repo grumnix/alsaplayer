@@ -363,10 +363,29 @@ if(ENABLE_OPENGL)
   )
 endif()
 
+# pkg-config paths must stay relative to ${prefix}. Under Nix (and some
+# other packagers) CMAKE_INSTALL_LIBDIR / INCLUDEDIR are absolute full
+# paths; joining them with ${prefix}/ produces broken //store/... entries.
+set(_pc_libdir "${CMAKE_INSTALL_LIBDIR}")
+set(_pc_includedir "${CMAKE_INSTALL_INCLUDEDIR}")
+if(IS_ABSOLUTE "${_pc_libdir}")
+  file(RELATIVE_PATH _pc_libdir "${CMAKE_INSTALL_PREFIX}" "${_pc_libdir}")
+endif()
+if(IS_ABSOLUTE "${_pc_includedir}")
+  file(RELATIVE_PATH _pc_includedir "${CMAKE_INSTALL_PREFIX}" "${_pc_includedir}")
+endif()
+# Fall back to conventional relative dirs if relative_path failed
+if(_pc_libdir STREQUAL "" OR _pc_libdir MATCHES "^\\.\\.")
+  set(_pc_libdir "lib")
+endif()
+if(_pc_includedir STREQUAL "" OR _pc_includedir MATCHES "^\\.\\.")
+  set(_pc_includedir "include")
+endif()
+
 file(WRITE ${CMAKE_BINARY_DIR}/alsaplayer.pc
 "prefix=${CMAKE_INSTALL_PREFIX}
-libdir=\${prefix}/${CMAKE_INSTALL_LIBDIR}
-includedir=\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}
+libdir=\${prefix}/${_pc_libdir}
+includedir=\${prefix}/${_pc_includedir}
 
 Name: alsaplayer
 Description: PCM player library
