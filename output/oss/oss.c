@@ -67,8 +67,8 @@ static void oss_close(void)
 
 static int oss_write(short *data, int count)
 {
-	write(oss_fd, data, count);
-	return 1;
+	ssize_t n = write(oss_fd, data, (size_t)count);
+	return (n < 0) ? 0 : 1;
 }
 
 

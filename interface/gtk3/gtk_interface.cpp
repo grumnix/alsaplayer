@@ -86,6 +86,7 @@
 #endif
 
 #include "info_window.h"
+#include "ap_string.h"
 
 Playlist *g_playlist = NULL;
 
@@ -876,7 +877,7 @@ gint indicator_callback(gpointer, int locking)
 		snprintf(info.title, sizeof (info.title), _("No stream"));
 	}
 	if (nr_blocks < 0 || strlen(info.status)) {
-		snprintf(str, sizeof (str), "%s", info.status);
+		ap_strlcpy(str, info.status, sizeof(str));
 		if (!strlen(info.status)) {
 			alsaplayer_error("empty string");
 		}
@@ -891,12 +892,16 @@ gint indicator_callback(gpointer, int locking)
 	infowindow->set_position(str);
 	infowindow->set_format(info.stream_type);
 	if (strlen(info.artist)) {
-		snprintf(title_string, sizeof (title_string), "%s - %s", info.artist, info.title);
+		{
+			ap_strlcpy(title_string, info.artist, sizeof(title_string));
+			ap_strlcat(title_string, " - ", sizeof(title_string));
+			ap_strlcat(title_string, info.title, sizeof(title_string));
+		}
 		infowindow->set_title(title_string);
 		if (prefs_get_bool(ap_prefs, "gtk2_interface", "play_on_title", 0))
 			gtk_window_set_title(GTK_WINDOW(gtk_widget_get_toplevel(g_playlist_window->GetWindow())), title_string);
 	} else if (strlen(info.title)) {
-		snprintf(title_string, sizeof (title_string), "%s", info.title);
+		ap_strlcpy(title_string, info.title, sizeof(title_string));
 		infowindow->set_title(title_string);
 		if (prefs_get_bool(ap_prefs, "gtk2_interface", "play_on_title", 0))
 			gtk_window_set_title(GTK_WINDOW(gtk_widget_get_toplevel(g_playlist_window->GetWindow())), title_string);

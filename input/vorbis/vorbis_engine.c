@@ -309,7 +309,7 @@ vorbis_stream_info(input_object *obj, stream_info *info)
 			snprintf(info->track, sizeof(info->track), "%s", n ? n : "");
 			snprintf(info->comment, sizeof(info->comment), "%s", c ? c : "");
 		} else {
-			snprintf(info->title, sizeof(info->title), "%s", data->path);
+			ap_strlcpy(info->title, data->path, sizeof(info->title));
 			info->artist [0] = '\0';
 			info->album [0] = '\0';
 			info->genre [0] = '\0';

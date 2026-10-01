@@ -199,7 +199,9 @@ static char **file_expand (const char *uri)
 	if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)  continue;
 
 	/* compose */
-	snprintf (tmp, sizeof (tmp), "%s/%s", decoded_uri + 5, entry->d_name);
+	ap_strlcpy(tmp, decoded_uri + 5, sizeof(tmp));
+	ap_strlcat(tmp, "/", sizeof(tmp));
+	ap_strlcat(tmp, entry->d_name, sizeof(tmp));
 	expanded [count++] = strdup (tmp);
 
 	/* grow up our list */

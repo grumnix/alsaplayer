@@ -571,7 +571,7 @@ static int reconnect (http_desc_t *desc, char *redirect)
 			     desc->path, desc->host, PACKAGE, VERSION,
 			     desc->pos);
     //alsaplayer_error("%s", request);
-    write (desc->sock, request, strlen (request));
+    (void)write(desc->sock, request, strlen(request));
     desc->begin = desc->pos;
     desc->buffer_pos = 0;
 

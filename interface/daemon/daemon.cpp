@@ -99,7 +99,7 @@ int daemon_stop(void)
 	char dummy;
 
 	// signal finish via pipe
-	write(busypipe[1], &dummy, 1);
+	(void)write(busypipe[1], &dummy, 1);
 
 	pthread_mutex_lock(&finish_mutex);
 	pthread_mutex_unlock(&finish_mutex);

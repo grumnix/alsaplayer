@@ -445,7 +445,7 @@ cddb_save_to_disk(char *subdir, int cdID, char *message)
 	}
 	/* cddb directory should be there at this point */
 
-	snprintf (path, sizeof (path), "%s/%s", real_path, subdir);
+	ap_strlcpy(path, real_path, sizeof(path)); ap_strlcat(path, "/", sizeof(path)); ap_strlcat(path, subdir, sizeof(path));
 	if (global_verbose)
 		alsaplayer_error("path = %s", path);
 	/* check if we have the directory in the disk */
@@ -470,7 +470,15 @@ cddb_save_to_disk(char *subdir, int cdID, char *message)
 	new = new != NULL ? new + 1 : message;
 
 	/* save it into the disc */
-	snprintf (filename, sizeof (filename), "%s/%s/%08x", real_path, subdir, cdID);
+	{
+		char idbuf[16];
+		snprintf(idbuf, sizeof(idbuf), "%08x", cdID);
+		ap_strlcpy(filename, real_path, sizeof(filename));
+		ap_strlcat(filename, "/", sizeof(filename));
+		ap_strlcat(filename, subdir, sizeof(filename));
+		ap_strlcat(filename, "/", sizeof(filename));
+		ap_strlcat(filename, idbuf, sizeof(filename));
+	}
 	if (global_verbose)
 		alsaplayer_error("filename = %s", filename);
 	/* create the file */
@@ -529,7 +537,13 @@ cddb_local_lookup (char *path, unsigned int cd_id)
 		{
 			char name [PATH_MAX];
 
-			snprintf (name, sizeof (name), "%s/%s/%s", path, directory[i]->d_name, cdrom_id);
+			{
+				ap_strlcpy(name, path, sizeof(name));
+				ap_strlcat(name, "/", sizeof(name));
+				ap_strlcat(name, directory[i]->d_name, sizeof(name));
+				ap_strlcat(name, "/", sizeof(name));
+				ap_strlcat(name, cdrom_id, sizeof(name));
+			}
 			if ((fd = open (name, O_RDONLY)) >= 0)
 			{
 				if (global_verbose)
@@ -846,7 +860,7 @@ cddb_read_file (char *file, struct cdda_local_data *data)
 					snprintf (name, sizeof (name), "%s", token);
 					if (data->tracks[indx].track) {
 						char post [512];
-						snprintf (post, sizeof (post), "%s%s", data->tracks[indx].track, name);
+						ap_strlcpy(post, data->tracks[indx].track, sizeof(post)); ap_strlcat(post, name, sizeof(post));
 						free(data->tracks[indx].track);
 						data->tracks[indx].track = strdup(post);
 					} else {

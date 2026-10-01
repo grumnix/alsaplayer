@@ -131,7 +131,8 @@ void CorePlayer::load_input_addons()
 
 	input_plugin_info_type input_plugin_info;
 
-	snprintf(path, sizeof (path), "%s/input", addon_dir);
+	ap_strlcpy(path, addon_dir, sizeof(path));
+	ap_strlcat(path, "/input", sizeof(path));
 
 	memset(plugins, 0, sizeof(plugins));
 
@@ -143,7 +144,9 @@ void CorePlayer::load_input_addons()
 		    strcmp(entry->d_name, "..") == 0) {
 				continue;
 		}
-		snprintf(path, sizeof (path), "%s/input/%s", addon_dir, entry->d_name);
+		ap_strlcpy(path, addon_dir, sizeof(path));
+		ap_strlcat(path, "/input/", sizeof(path));
+		ap_strlcat(path, entry->d_name, sizeof(path));
 		if (stat(path, &buf)) continue;
 		if (!S_ISREG(buf.st_mode)) continue;
 

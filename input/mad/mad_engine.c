@@ -788,7 +788,7 @@ static int mad_stream_info(input_object *obj, stream_info *info)
 
 	if (data) {
 		if (!data->parse_id3) {
-			snprintf(data->sinfo.title, sizeof (data->sinfo.title), "%s", data->filename);
+			ap_strlcpy(data->sinfo.title, data->filename, sizeof(data->sinfo.title));
 		} else if (!data->parsed_id3) {
 			if (reader_seekable(data->mad_fd)) {
 				parse_id3 (data->path, &data->sinfo);

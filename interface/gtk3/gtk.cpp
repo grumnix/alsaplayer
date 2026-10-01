@@ -64,13 +64,14 @@ void unload_scope_addons()
 
 void load_scope_addons()
 {
-	char path[1024];
+	char path[PATH_MAX];
 	struct stat buf;
 	scope_plugin *tmp;
 
 	scope_plugin_info_type scope_plugin_info;
 
-	snprintf(path, sizeof(path)-1, "%s/scopes2", addon_dir);
+	ap_strlcpy(path, addon_dir, sizeof(path));
+	ap_strlcat(path, "/scopes2", sizeof(path));
 
 	DIR *dir = opendir(path);
 	dirent *entry;
@@ -81,7 +82,9 @@ void load_scope_addons()
 				strcmp(entry->d_name, "..") == 0) {
 				continue;
 			}
-			snprintf(path, sizeof (path), "%s/scopes2/%s", addon_dir, entry->d_name);
+			ap_strlcpy(path, addon_dir, sizeof(path));
+			ap_strlcat(path, "/scopes2/", sizeof(path));
+			ap_strlcat(path, entry->d_name, sizeof(path));
 			//alsaplayer_error(path);
 			if (stat(path, &buf)) continue;
 			if (S_ISREG(buf.st_mode)) {

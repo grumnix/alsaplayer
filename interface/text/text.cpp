@@ -211,9 +211,13 @@ int interface_text_start(Playlist *playlist, int /* argc */, char ** /* argv */)
 				i -= 8;
 			}
 			if (*info.artist)
-				snprintf(out_text, i, "%s - %s", info.artist, info.title);
+				{
+					ap_strlcpy(out_text, info.artist, (size_t)i);
+					ap_strlcat(out_text, " - ", (size_t)i);
+					ap_strlcat(out_text, info.title, (size_t)i);
+				}
 			else if (*info.title)
-				snprintf(out_text, i, "%s", info.title);
+				ap_strlcpy(out_text, info.title, (size_t)i);
 			else
 				snprintf(out_text, i, "(no title information available)");
 			spaces = i - strlen(out_text);

@@ -385,6 +385,9 @@ int ap_find_session(char *session_name, int *session)
 	if (dir) {
 		while ((entry = readdir(dir)) != NULL) {
 			if (strncmp(entry->d_name, test_path, strlen(test_path)) == 0) {
+				/* Bound the sscanf pattern; test_path is a fixed prefix under /tmp */
+				if (strlen(test_path) + 2 >= sizeof(tmp))
+					continue;
 				snprintf(tmp, sizeof (tmp), "%s%%d", test_path);
 				if (sscanf(entry->d_name, tmp, &session_id) == 1) {
 					if (ap_session_running(session_id) == 1) {

@@ -26,6 +26,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <algorithm>
+#include <random>
 
 #include "Playlist.h"
 #include "CorePlayer.h"
@@ -707,7 +708,7 @@ void Playlist::Shuffle() {
 	}
 
 	// Shuffle
-	random_shuffle(queue.begin(), queue.end());
+	std::shuffle(queue.begin(), queue.end(), std::mt19937{std::random_device{}()});
 
 	// Search new location of the playing song
 	for (p = queue.begin (), curritem = 1; p != queue.end (); p++, curritem++) {
