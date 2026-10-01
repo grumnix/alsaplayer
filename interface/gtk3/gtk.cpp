@@ -150,12 +150,10 @@ void dl_close_scopes();
 
 int interface_gtk_start(Playlist *playlist, int argc, char **argv)
 {
-	char path[256];
-	char *home;
 
 	the_coreplayer = playlist->GetCorePlayer();
 
-	if (!g_thread_supported()) {
+	if (0) /* threads always available */ {
 		alsaplayer_error("Sorry - this interface requires working threads.\n");
 		return 1;
 	}
@@ -171,10 +169,6 @@ int interface_gtk_start(Playlist *playlist, int argc, char **argv)
 	gtk_init(&argc, &argv);
 	/* gdk_rgb_init removed in GTK3 */
 
-	home = getenv("HOME");
-	if (home) {
-		/* GTK3 uses CSS; optional user theme not loaded here */
-	}
 
 	// Scope addons
 	gdk_flush();
