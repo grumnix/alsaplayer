@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "alsaplayer": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1737482281,
-        "narHash": "sha256-8rtfsWr1BfkVctEecVczMki2IfWVsfmsQn/kySdRM70=",
-        "owner": "alsaplayer",
-        "repo": "alsaplayer",
-        "rev": "05ca204363e3bc2fb9d87a810ebdb0ac4ff54d3c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "alsaplayer",
-        "repo": "alsaplayer",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1790822859,
@@ -34,7 +18,6 @@
     },
     "root": {
       "inputs": {
-        "alsaplayer": "alsaplayer",
         "nixpkgs": "nixpkgs"
       }
     }

@@ -3,45 +3,47 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    alsaplayer = {
-      url = "github:alsaplayer/alsaplayer";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, alsaplayer }:
+  outputs =
+    { self, nixpkgs }:
     let
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
     in
     {
-      packages = forAllSystems (system:
+      packages = forAllSystems (
+        system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          lib = pkgs.lib;
 
-          # Extract version from the AC_INIT line in configure.ac
+          # Parse version from configure.ac without regex.
           # AC_INIT([alsaplayer],[0.99.82],...)
           version =
             let
-              configureAc = builtins.readFile "${alsaplayer}/configure.ac";
-              lines = pkgs.lib.splitString "\n" configureAc;
-              initLines = builtins.filter
-                (l: builtins.match "AC_INIT.*" l != null)
-                lines;
-              line = if initLines != [] then builtins.head initLines else "";
-              # Character classes for literal [ ] — \[ is invalid in Nix ERE
-              match = builtins.match
-                ''AC_INIT\([[]alsaplayer[]],[[]([0-9.]+)[]].*''
-                line;
+              configureAc = builtins.readFile (self + "/configure.ac");
+              lines = lib.splitString "\n" configureAc;
+              initLine =
+                lib.findFirst (l: lib.hasPrefix "AC_INIT" l) "" lines;
+              # Split on "[" → [ "AC_INIT(", "alsaplayer],", "0.99.82],", ... ]
+              parts = lib.splitString "[" initLine;
+              verField =
+                if builtins.length parts >= 3 then builtins.elemAt parts 2 else "";
+              # "0.99.82]," → "0.99.82"
+              ver = builtins.head (lib.splitString "]" verField);
             in
-            if match != null then builtins.head match else "0.99.82";
+            if ver != "" then ver else "0.99.82";
         in
         {
           default = pkgs.stdenv.mkDerivation {
             pname = "alsaplayer";
             inherit version;
 
-            src = alsaplayer;
+            src = lib.cleanSource self;
 
             nativeBuildInputs = with pkgs; [
               autoreconfHook
@@ -83,8 +85,9 @@
               "--disable-esd"
             ];
 
+            # intltoolize is required; autoreconfHook alone is not enough
             preConfigure = ''
-              ./autogen.sh
+              intltoolize --force --copy --automake
             '';
 
             postInstall = ''
@@ -93,7 +96,7 @@
                 --set ALSAPLAYER_PLUGIN_DIR "$out/lib/alsaplayer"
             '';
 
-            meta = with pkgs.lib; {
+            meta = with lib; {
               description = "Heavily multi-threaded PCM player that exercises the ALSA library";
               homepage = "https://alsaplayer.sourceforge.net/";
               license = licenses.gpl3Plus;
@@ -101,7 +104,8 @@
               mainProgram = "alsaplayer";
             };
           };
-        });
+        }
+      );
 
       apps = forAllSystems (system: {
         default = {
