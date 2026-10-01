@@ -7,6 +7,8 @@
 
 ## Done
 
+- [x] CMake build system; flake uses cmake instead of autoreconf
+
 - [x] Port GUI from GTK2 to GTK3 (`interface/gtk3/`, configure `--enable-gtk3`, flake uses `gtk3`)
 
 - [x] Add initial `flake.nix` / `flake.lock` (commit bbd6b69)

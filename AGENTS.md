@@ -181,3 +181,17 @@ Most visualization plugins under `scopes2/` (monoscope, blurscope, levelmeter, â
 `scopes2/Makefile.am` currently only builds **`opengl_spectrum`**.
 
 Known follow-ups: replace override_* with CSS providers; migrate off StatusIcon; verify DnD and file chooser on GTK 3.24+.
+
+
+## CMake
+
+Primary build path for the flake is **CMake** (autotools remain in-tree).
+
+```bash
+cmake -B build -DENABLE_GTK3=ON -DENABLE_ALSA=ON
+cmake --build build
+cmake --install build
+```
+
+Plugins install under `$prefix/lib/alsaplayer/{interface,input,output,reader,scopes2}/`.
+Default UI plugin name: `gtk3` (`libgtk3_interface.so`).

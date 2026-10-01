@@ -21,19 +21,14 @@
           pkgs = nixpkgs.legacyPackages.${system};
           lib = pkgs.lib;
 
-          # Parse version from configure.ac without regex.
-          # AC_INIT([alsaplayer],[0.99.82],...)
           version =
             let
               configureAc = builtins.readFile (self + "/configure.ac");
               lines = lib.splitString "\n" configureAc;
-              initLine =
-                lib.findFirst (l: lib.hasPrefix "AC_INIT" l) "" lines;
-              # Split on "[" → [ "AC_INIT(", "alsaplayer],", "0.99.82],", ... ]
+              initLine = lib.findFirst (l: lib.hasPrefix "AC_INIT" l) "" lines;
               parts = lib.splitString "[" initLine;
               verField =
                 if builtins.length parts >= 3 then builtins.elemAt parts 2 else "";
-              # "0.99.82]," → "0.99.82"
               ver = builtins.head (lib.splitString "]" verField);
             in
             if ver != "" then ver else "0.99.82";
@@ -46,10 +41,8 @@
             src = lib.cleanSource self;
 
             nativeBuildInputs = with pkgs; [
-              autoreconfHook
+              cmake
               pkg-config
-              intltool
-              gettext
               makeWrapper
             ];
 
@@ -71,24 +64,21 @@
               zlib
             ];
 
-            configureFlags = [
-              "--enable-alsa"
-              "--enable-jack"
-              "--enable-gtk3"
-              "--enable-mad"
-              "--enable-flac"
-              "--enable-oggvorbis"
-              "--enable-mikmod"
-              "--enable-sndfile"
-              "--enable-opengl"
-              "--disable-systray"
-              "--disable-esd"
+            cmakeFlags = [
+              "-DENABLE_GTK3=ON"
+              "-DENABLE_ALSA=ON"
+              "-DENABLE_JACK=ON"
+              "-DENABLE_OSS=ON"
+              "-DENABLE_MAD=ON"
+              "-DENABLE_FLAC=ON"
+              "-DENABLE_VORBIS=ON"
+              "-DENABLE_MIKMOD=ON"
+              "-DENABLE_SNDFILE=ON"
+              "-DENABLE_CDDA=ON"
+              "-DENABLE_OPENGL=ON"
+              "-DENABLE_SYSTRAY=OFF"
+              "-DENABLE_NLS=OFF"
             ];
-
-            # intltoolize is required; autoreconfHook alone is not enough
-            preConfigure = ''
-              intltoolize --force --copy --automake
-            '';
 
             postInstall = ''
               wrapProgram $out/bin/alsaplayer \
