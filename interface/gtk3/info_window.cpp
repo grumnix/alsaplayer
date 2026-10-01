@@ -44,6 +44,8 @@ create_info_window()
 
 	block = gtk_frame_new(NULL);
 	main_box = gtk_layout_new(NULL, NULL);
+	gtk_widget_set_app_paintable(main_box, TRUE);
+	gtk_widget_set_size_request(main_box, -1, 40);
 
 	g_object_set_data(G_OBJECT(block), "layout", main_box);
 	gtk_container_add(GTK_CONTAINER(block), main_box);
@@ -89,6 +91,8 @@ InfoWindow::InfoWindow()
 	leftwidth = 0;
 	rightwidth = 0;
 	labelheight = 0;
+
+	gtk_widget_set_size_request(window, -1, 40);
 
 	const char *val = prefs_get_string(ap_prefs, "gtk2_interface", "background_colour", "#000000");
 	this->set_background_color(val);
@@ -182,41 +186,74 @@ void InfoWindow::set_speed(const gchar *text)
 
 void InfoWindow::set_background_color(const gchar* str)
 {
-	GdkColor color;
-
-	if (!gdk_color_parse(str, &color))
+	GdkRGBA rgba;
+	if (!gdk_rgba_parse(&rgba, str))
 		return;
 
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_background_color(this->layout, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
+	gchar *css = g_strdup_printf(
+		".alsaplayer-info { background-color: %s; background-image: none; }",
+		str);
+	GtkCssProvider *provider = gtk_css_provider_new();
+	gtk_css_provider_load_from_data(provider, css, -1, NULL);
+	gtk_style_context_add_provider(
+		gtk_widget_get_style_context(this->layout),
+		GTK_STYLE_PROVIDER(provider),
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	gtk_style_context_add_class(gtk_widget_get_style_context(this->layout), "alsaplayer-info");
+	/* Also paint the frame */
+	gtk_style_context_add_provider(
+		gtk_widget_get_style_context(this->window),
+		GTK_STYLE_PROVIDER(provider),
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	gtk_style_context_add_class(gtk_widget_get_style_context(this->window), "alsaplayer-info");
+	g_object_unref(provider);
+	g_free(css);
+	(void)rgba;
 }
 
 void InfoWindow::set_font_color(const gchar* str)
 {
-	GdkColor color;
-
-	if (!gdk_color_parse(str, &color))
+	GdkRGBA rgba;
+	if (!gdk_rgba_parse(&rgba, str))
 		return;
 
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_color(this->volume, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_color(this->position, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_color(this->title, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_color(this->format, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_color(this->speed, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
-	do { GdkRGBA __rgba; __rgba.red = color.red/65535.0; __rgba.green = color.green/65535.0; __rgba.blue = color.blue/65535.0; __rgba.alpha = 1.0; gtk_widget_override_color(this->balance, GTK_STATE_FLAG_NORMAL, &__rgba); } while(0);
+	gchar *css = g_strdup_printf(
+		".alsaplayer-info-label { color: %s; }",
+		str);
+	GtkCssProvider *provider = gtk_css_provider_new();
+	gtk_css_provider_load_from_data(provider, css, -1, NULL);
+
+	GtkWidget *labels[] = {
+		this->volume, this->position, this->title,
+		this->format, this->speed, this->balance
+	};
+	for (unsigned i = 0; i < G_N_ELEMENTS(labels); i++) {
+		GtkStyleContext *ctx = gtk_widget_get_style_context(labels[i]);
+		gtk_style_context_add_provider(ctx, GTK_STYLE_PROVIDER(provider),
+			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+		gtk_style_context_add_class(ctx, "alsaplayer-info-label");
+	}
+	g_object_unref(provider);
+	g_free(css);
+	(void)rgba;
 }
 
 void InfoWindow::set_fonts(const gchar* str)
 {
-	PangoFontDescription *fonts;
+	if (!str || !*str)
+		return;
 
-	fonts = pango_font_description_from_string(str);
-
-	gtk_widget_override_font(this->volume, fonts);
-	gtk_widget_override_font(this->position, fonts);
-	gtk_widget_override_font(this->title, fonts);
-	gtk_widget_override_font(this->format, fonts);
-	gtk_widget_override_font(this->speed, fonts);
-	gtk_widget_override_font(this->balance, fonts);
-
+	PangoFontDescription *fonts = pango_font_description_from_string(str);
+	gchar *css = g_strdup_printf(
+		".alsaplayer-info-label { font: %s; }",
+		str);
+	/* Prefer override_font for Pango description reliability */
+	GtkWidget *labels[] = {
+		this->volume, this->position, this->title,
+		this->format, this->speed, this->balance
+	};
+	for (unsigned i = 0; i < G_N_ELEMENTS(labels); i++)
+		gtk_widget_override_font(labels[i], fonts);
 	pango_font_description_free(fonts);
+	g_free(css);
 }

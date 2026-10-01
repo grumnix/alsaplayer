@@ -1190,14 +1190,12 @@ loop_button_clicked(GtkWidget *widget, gpointer user_data)
 	}
 }
 
-static gboolean
-configure_window (GtkWidget *, GdkEvent *, gpointer user_data)
+static void
+configure_window (GtkWidget *, GdkRectangle *, gpointer user_data)
 {
 	InfoWindow* info = (InfoWindow *)user_data;
 
 	info->set_positions();
-
-	return FALSE;
 }
 
 static void
@@ -1500,7 +1498,7 @@ create_main_window (Playlist *pl)
 	gboolean staticon = status_icon_create(main_window);
 #endif
 
-	g_signal_connect(G_OBJECT(main_window), "expose-event", G_CALLBACK(configure_window), (gpointer)infowindow);
+	g_signal_connect(G_OBJECT(info_window), "size-allocate", G_CALLBACK(configure_window), (gpointer)infowindow);
 
 #if HAVE_SYSTRAY
 	if (staticon)
