@@ -240,7 +240,8 @@ FlacStream::metaCallBack (const FLAC__StreamDecoder *,
 
     if (!f)
     {
-	f->apError ("FlacStream::metaCallBack(): no client data");
+	/* No instance: cannot call a member function. */
+	alsaplayer_error ("FlacStream::metaCallBack(): no client data");
 	return;
     }
 
@@ -283,7 +284,7 @@ FlacStream::errCallBack (const FLAC__StreamDecoder *,
     FlacStream * f = (FlacStream *) client_data;
     if (!f)
     {
-	f->apError ("FlacStream::errCallBack (): no client data");
+	alsaplayer_error ("FlacStream::errCallBack(): no client data");
 	return;
     }
 
