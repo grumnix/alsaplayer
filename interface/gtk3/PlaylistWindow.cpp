@@ -73,6 +73,18 @@ static GtkTargetEntry drag_types[] = {
 };
 static int n_drag_types = sizeof(drag_types)/sizeof(drag_types[0]);
 
+/* GTK2 stock buttons showed icon + label. GTK3 icon-name buttons are
+ * icon-only; rebuild that look with an explicit image + mnemonic. */
+static GtkWidget *
+button_new_icon_mnemonic(const char *icon_name, const char *mnemonic)
+{
+	GtkWidget *btn = gtk_button_new_with_mnemonic(mnemonic);
+	GtkWidget *img = gtk_image_new_from_icon_name(icon_name, GTK_ICON_SIZE_BUTTON);
+	gtk_button_set_image(GTK_BUTTON(btn), img);
+	gtk_button_set_always_show_image(GTK_BUTTON(btn), TRUE);
+	return btn;
+}
+
 static void
 dialog_cancel_response(GtkWidget *dialog, gpointer /*data*/)
 {
@@ -610,11 +622,12 @@ create_playlist_window (PlaylistWindow *playlist_window)
 	button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_start (GTK_BOX (main_box), button_box, FALSE, FALSE, 0);
 
-	add_button = gtk_button_new_from_icon_name("list-add", GTK_ICON_SIZE_BUTTON);
+	/* Match GTK2 stock buttons: icon + label (not icon-only). */
+	add_button = button_new_icon_mnemonic("list-add", _("_Add"));
 	gtk_box_pack_start (GTK_BOX (button_box), add_button, FALSE, FALSE, 0);
 	gtk_widget_set_tooltip_text(add_button, _("Add a song into the playlist"));
 
-	del_button = gtk_button_new_from_icon_name("list-remove", GTK_ICON_SIZE_BUTTON);
+	del_button = button_new_icon_mnemonic("list-remove", _("_Remove"));
 	gtk_box_pack_start (GTK_BOX (button_box), del_button, FALSE, FALSE, 0);
 	gtk_widget_set_tooltip_text(del_button, _("Remove the selected song from the playlist"));
 
@@ -622,22 +635,22 @@ create_playlist_window (PlaylistWindow *playlist_window)
 	gtk_box_pack_start (GTK_BOX (button_box), shuffle_button, FALSE, FALSE, 0);
 	gtk_widget_set_tooltip_text(shuffle_button, _("Randomize the playlist"));
 
-    onebyone_button = gtk_toggle_button_new_with_label(_("One by one"));
-    gtk_box_pack_start (GTK_BOX (button_box), onebyone_button, FALSE, FALSE, 0);
-    gtk_widget_set_tooltip_text(onebyone_button, _("Stop after each track"));
+	onebyone_button = gtk_toggle_button_new_with_label(_("One by one"));
+	gtk_box_pack_start (GTK_BOX (button_box), onebyone_button, FALSE, FALSE, 0);
+	gtk_widget_set_tooltip_text(onebyone_button, _("Stop after each track"));
 
 	pl_button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_end (GTK_BOX (button_box), pl_button_box, FALSE, FALSE, 0);
 
-	load_button = gtk_button_new_with_mnemonic(_("_Open"));
+	load_button = button_new_icon_mnemonic("document-open", _("_Open"));
 	gtk_box_pack_start (GTK_BOX (pl_button_box), load_button, FALSE, FALSE, 0);
 	gtk_widget_set_tooltip_text(load_button, _("Open a playlist"));
 
-	save_button = gtk_button_new_with_mnemonic(_("_Save"));
+	save_button = button_new_icon_mnemonic("document-save", _("_Save"));
 	gtk_box_pack_start (GTK_BOX (pl_button_box), save_button, FALSE, FALSE, 0);
 	gtk_widget_set_tooltip_text(save_button, _("Save the playlist"));
 
-	clear_button = gtk_button_new_from_icon_name("edit-clear", GTK_ICON_SIZE_BUTTON);
+	clear_button = button_new_icon_mnemonic("edit-clear", _("_Clear"));
 	gtk_box_pack_start (GTK_BOX (pl_button_box), clear_button, FALSE, FALSE, 0);
 	gtk_widget_set_tooltip_text(clear_button, _("Remove the current playlist"));
 
