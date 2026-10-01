@@ -167,9 +167,27 @@
 
           # Env for the unwrapped staged binary (mirrors postInstall wrapProgram).
           # Reader/CorePlayer bake ADDON_DIR at compile time → stage install is required.
+          # GNUInstallDirs may use lib or lib64 depending on the host; resolve after stage.
           runEnv = ''
-            export LD_LIBRARY_PATH="$STAGE_DIR/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-            export ALSAPLAYER_PLUGIN_DIR="$STAGE_DIR/lib/alsaplayer"
+            stage_libdir() {
+              if [ -e "$STAGE_DIR/lib64/libalsaplayer.so" ] || [ -e "$STAGE_DIR/lib64/libalsaplayer.so.0" ]; then
+                echo "$STAGE_DIR/lib64"
+              elif [ -e "$STAGE_DIR/lib/libalsaplayer.so" ] || [ -e "$STAGE_DIR/lib/libalsaplayer.so.0" ]; then
+                echo "$STAGE_DIR/lib"
+              else
+                # Prefer cache value if present (relative libdir under prefix)
+                local rel
+                rel=$(grep -E '^CMAKE_INSTALL_LIBDIR:PATH=' "$CACHE" 2>/dev/null | cut -d= -f2- || true)
+                if [ -n "$rel" ] && [ -d "$STAGE_DIR/$rel" ]; then
+                  echo "$STAGE_DIR/$rel"
+                else
+                  echo "$STAGE_DIR/lib"
+                fi
+              fi
+            }
+            STAGE_LIBDIR="$(stage_libdir)"
+            export LD_LIBRARY_PATH="$STAGE_LIBDIR''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export ALSAPLAYER_PLUGIN_DIR="$STAGE_LIBDIR/alsaplayer"
           '';
 
           alsaplayer-configure = pkgs.writeShellScriptBin "alsaplayer-configure" ''
@@ -248,10 +266,17 @@
             shellHook = ''
               export PROJECT_SOURCE="''${PROJECT_SOURCE:-$PWD}"
               export PROJECT_BUILD_DIR="''${PROJECT_BUILD_DIR:-/tmp/alsaplayer-build}"
-              # Mirror packaged wrapper env for anything dlopen'd from the stage tree
-              # (set after build/install; harmless placeholders until first stage)
-              export LD_LIBRARY_PATH="''${PROJECT_BUILD_DIR}/stage/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-              export ALSAPLAYER_PLUGIN_DIR="''${PROJECT_BUILD_DIR}/stage/lib/alsaplayer"
+              # Mirror packaged wrapper env once a stage tree exists (lib or lib64).
+              _stage="''${PROJECT_BUILD_DIR}/stage"
+              if [ -e "$_stage/lib64/libalsaplayer.so" ] || [ -e "$_stage/lib64/libalsaplayer.so.0" ]; then
+                _libdir="$_stage/lib64"
+              elif [ -e "$_stage/lib/libalsaplayer.so" ] || [ -e "$_stage/lib/libalsaplayer.so.0" ]; then
+                _libdir="$_stage/lib"
+              else
+                _libdir="$_stage/lib"
+              fi
+              export LD_LIBRARY_PATH="$_libdir''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+              export ALSAPLAYER_PLUGIN_DIR="$_libdir/alsaplayer"
               echo "alsaplayer develop shell"
               echo "  PROJECT_SOURCE=$PROJECT_SOURCE"
               echo "  PROJECT_BUILD_DIR=$PROJECT_BUILD_DIR"
