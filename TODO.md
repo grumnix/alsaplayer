@@ -3,7 +3,7 @@
 ## Current tip
 
 - Branch: `master` (fork of upstream alsaplayer)
-- Tip: `c48dbca` CMake: fix alsaplayer.pc paths under absolute CMAKE_INSTALL_*DIR
+- Tip: `cab99b9` flake: add libsysprof-capture and libopus for pkg-config
 - Goal: working Nix flake that builds alsaplayer from this tree
 - Base of this work line: `05ca204`
 
@@ -24,6 +24,12 @@
 - [x] Confirm `nix build -L .` succeeds
 - [x] Confirm plugins under `$out/lib/alsaplayer` (input, output, interface, reader, scopes2)
 - [x] `alsaplayer --help` reports default interface `gtk3`
+- [x] Clear compiler warnings (no silencing):
+  - FLAC null-this in meta/err callbacks → alsaplayer_error
+  - cdda CDDB snprintf truncation → larger msg buffer + return checks
+  - daemon/http write() unused result → check and handle
+  - message.c sscanf pattern buffer sizing
+  - flake: libsysprof-capture + libopus for pkg-config private deps
 
 ## Open
 
@@ -35,6 +41,7 @@
 - [ ] Optionally `--enable-systray` / ENABLE_SYSTRAY
 - [ ] Optional outputs later: xosd, nas
 - [ ] Runtime plugin discovery smoke test beyond path layout
+- [ ] Re-run `nix build -L .` after warning fixes (local cmake build is clean)
 
 ## Notes
 
@@ -47,4 +54,5 @@
 ## Handoff
 
 Next optional work: GTK3 deprecation cleanup, Cairo port of remaining scopes, or tighter cleanSource.
-Bundle from base `05ca204` contains the full stack including the .pc path fix.
+Local cmake build is warning-free after the fixes above.
+Bundle from base `05ca204` is cumulative through the warning cleanup.
