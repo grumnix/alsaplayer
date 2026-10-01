@@ -8,28 +8,28 @@
 ## Done
 
 - [x] Add initial `flake.nix` / `flake.lock` (commit bbd6b69)
-- [x] Move source to `self` (flake lives in the project; no external source input)
-- [x] Fix version extraction: Nix ERE rejects `\[`; use `lib.splitString` instead
-- [x] Add `makeWrapper` for `wrapProgram`
-- [x] Disable obsolete ESD plugin
-- [x] Keep `intltoolize` in `preConfigure` (required beyond plain `autoreconfHook`)
+- [x] Move source to `self` (no external source input)
+- [x] Fix version extraction without Nix ERE (`lib.splitString`)
+- [x] `makeWrapper`, `intltoolize`, `--disable-esd`
+- [x] Document source tree + dead code in **AGENTS.md** (attic ~half the tree, `old_playlist.h`, obsolete m4, niche outputs)
 
 ## Open
 
-- [ ] Confirm `nix build` succeeds on a machine with Nix
-- [ ] Confirm plugins land under `$out/lib/alsaplayer` and runtime finds them
-- [ ] Optionally enable `--enable-systray` if desired
-- [ ] Consider packaging optional deps (xosd, nas) as separate outputs later
-- [ ] Upstream or document any patches needed for modern GCC / gtk2
+- [ ] Confirm `nix build -L .` succeeds
+- [ ] Confirm plugins under `$out/lib/alsaplayer` and runtime discovery
+- [ ] Optional: tighter `cleanSource` / filter to drop `attic/` from the derivation src
+- [ ] Optional cleanup (separate decision): remove `alsaplayer/old_playlist.h`; drop unused `m4/gtk.m4`, `m4/qt.m4`
+- [ ] Optionally `--enable-systray`
+- [ ] Optional outputs later: xosd, nas
+- [ ] Modern GCC / gtk2 fixes if the build surfaces any
 
 ## Notes
 
-- Version is read from `AC_INIT` in `configure.ac` via string splits (no regex).
-- `src = lib.cleanSource self` so the flake builds the local tree.
-- After changing inputs, run `nix flake lock` if the lockfile needs refresh.
-- Author for commits: Ingo Ruhnke <grumbel@gmail.com>
+- **`attic/` is not in `SUBDIRS`** — never built. ~3.0 MB / ~51 kLOC vs ~30 kLOC active.
+- Version from `AC_INIT` via string splits. `src = lib.cleanSource self`.
+- Author: Ingo Ruhnke <grumbel@gmail.com>
 - Co-authored-by: Grok <grok@x.ai>
 
 ## Handoff
 
-Next agent: run `nix build -L .` from the repo root, fix any remaining configure/build errors, update this file, then produce a cumulative git bundle per AGENTS rules.
+Next: run `nix build -L .`, fix configure/build errors, update this file, emit cumulative git bundle from base `05ca204`.
