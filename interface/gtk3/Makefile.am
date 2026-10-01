@@ -29,7 +29,7 @@ endif
 
 lib_LTLIBRARIES = $(gtk3_interfaceltlibs)
 
-AM_CXXFLAGS = @DFLAGS@ -D_REENTRANT -I$(top_builddir) \
+AM_CXXFLAGS = @DFLAGS@ -Wno-deprecated-declarations -D_REENTRANT -I$(top_builddir) \
 		-I$(top_srcdir)/libalsaplayer -I$(top_srcdir)/alsaplayer \
 		@GTK3_CFLAGS@ -DADDON_DIR=\"$(ADDON_DIR)\"
 

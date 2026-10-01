@@ -580,7 +580,6 @@ create_playlist_window (PlaylistWindow *playlist_window)
 
 	list = gtk_tree_view_new_with_model(GTK_TREE_MODEL(playlist_model));
 	g_object_set_data(G_OBJECT(main_window), "list", list);
-	gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(list), TRUE);
 	g_object_unref(playlist_model);
 
 	gtk_container_add (GTK_CONTAINER (scrolledwindow), list);
