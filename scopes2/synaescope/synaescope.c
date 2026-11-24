@@ -38,6 +38,7 @@
 #include "scope_config.h"
 #include "prefs.h"
 #include "ap_unused.h"
+#include "../scope_view.h"
 
 #define FFT_BUFFER_SIZE_LOG 8
 #define FFT_BUFFER_SIZE (1 << FFT_BUFFER_SIZE_LOG)
@@ -54,7 +55,9 @@ typedef short int sound_sample;
 
 static int autobrightness = 1;  /* Whether to use automatic brightness adjust */
 static unsigned int brightFactor = 400;
-static unsigned char output[syn_width * syn_height * 2];
+/* Two bytes per pixel; faded a 32-bit word at a time in synaescope_coreGo() */
+static guint32 output_words[syn_width * syn_height / 2];
+static unsigned char * const output = (unsigned char *)output_words;
 static sound_sample pcmt_l[FFT_BUFFER_SIZE];
 static sound_sample pcmt_r[FFT_BUFFER_SIZE];
 static sound_sample pcm_l[FFT_BUFFER_SIZE];
@@ -69,31 +72,24 @@ static double cosTable[FFT_BUFFER_SIZE];
 static double negSinTable[FFT_BUFFER_SIZE];
 static int bitReverse[FFT_BUFFER_SIZE];
 static int scaleDown[256];
-static GdkImage *image = NULL;
-static GtkWidget *scope_win = NULL;
-static int ready_state = 0;
+static scope_view view = SCOPE_VIEW_INIT("Synaescope", syn_width, syn_height);
 static pthread_t synaescope_thread;
-static pthread_mutex_t synaescope_mutex;
-static int is_init = 0;
+static pthread_mutex_t pcm_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int running = 0;
 
-static void synaescope_hide(void);
 static void synaes_fft(double *x, double *y);
 static void synaescope_coreGo(void);
 static int synaescope_running(void);
 
-static const int default_colors[] = {
-    10, 20, 30,
-    230, 220, 210
-};
-
-
 static void synaescope_set_data(void *audio_buffer, int size)
 {
 	short *sound = (short *)audio_buffer;
+	if (pthread_mutex_trylock(&pcm_mutex) != 0)
+		return;
 	if (!sound) {
-			memset(&pcm_l, 0, sizeof(pcm_l));
-			memset(&pcm_r, 0, sizeof(pcm_r));
+			memset(&pcmt_l, 0, sizeof(pcmt_l));
+			memset(&pcmt_r, 0, sizeof(pcmt_r));
+			pthread_mutex_unlock(&pcm_mutex);
 			return;
 	}
 	if (running && size > FFT_BUFFER_SIZE * 2) {
@@ -106,26 +102,7 @@ static void synaescope_set_data(void *audio_buffer, int size)
 			*(newset_r++) = (sound_sample)(*(sound++));
 		}
 	}
-}
-
-#define SYNAESCOPE_DOLOOP() \
-while (running) { \
-    unsigned char *outptr = output; \
-    int w; \
-\
-    synaescope_coreGo(); \
-\
-    outptr = output; \
-    for (w=0; w < syn_width * syn_height; w++) { \
-	bits[w] = colEq[(outptr[0] >> 4) + (outptr[1] & 0xf0)]; \
-	outptr += 2; \
-    } \
-\
-    GDK_THREADS_ENTER(); \
-    gdk_draw_image(win,gc,image,0,0,0,0,-1,-1); \
-    gdk_flush(); \
-    GDK_THREADS_LEAVE(); \
-    dosleep(SCOPE_SLEEP); \
+	pthread_mutex_unlock(&pcm_mutex);
 }
 
 static inline void addPixel(unsigned char *out, int x,int y,int br1,int br2) {
@@ -144,18 +121,18 @@ static inline void addPixelFast(unsigned char *p,int br1,int br2) {
 
 static void synaescope_coreGo(void) {
   int i,j;
-  register unsigned long *ptr;
-  register unsigned long *end;
+  guint32 *ptr;
+  guint32 *end;
   int heightFactor;
   int actualHeight;
   int heightAdd;
   double brightFactor2;
   long int brtot;
 
-  GDK_THREADS_ENTER();
+  pthread_mutex_lock(&pcm_mutex);
   memcpy(pcm_l, pcmt_l, sizeof(pcm_l));
   memcpy(pcm_r, pcmt_r, sizeof(pcm_r));
-  GDK_THREADS_LEAVE();
+  pthread_mutex_unlock(&pcm_mutex);
 
   for(i = 0; i < FFT_BUFFER_SIZE; i++) {
     fftout_l[i] = pcm_l[i];
@@ -178,8 +155,8 @@ static void synaescope_coreGo(void) {
 
   /* Asger Alstrupt's optimized 32 bit fade */
   /* (alstrup@diku.dk) */
-  ptr = (unsigned long*)output;
-  end = (unsigned long*)(output + syn_width * syn_height * 2);
+  ptr = output_words;
+  end = output_words + G_N_ELEMENTS(output_words);
   do {
     /* Bytewize version was: *(ptr++) -= *ptr+(*ptr>>1)>>4; */
     if (*ptr) {
@@ -276,235 +253,43 @@ static void synaescope_coreGo(void) {
 #define BOUND(x) ((x) > 255 ? 255 : (x))
 #define PEAKIFY(x) BOUND((x) - (x)*(255-(x))/255/2)
 
-static void synaescope32(void *data)
+static void the_synaescope(void)
 {
-	guint32 *bits;
 	guint32 colEq[256];
 	int i;
-	GdkWindow *win;
-	GdkColormap *c;
-	GdkVisual *v;
-	GdkGC *gc;
-	GdkColor bg_color;
-
-	win = (GdkWindow *)data;
-	GDK_THREADS_ENTER();
-	c = gdk_colormap_get_system();
-	gc = gdk_gc_new(win);
-	v = gdk_window_get_visual(win);
 
 	for (i = 0; i < 256; i++) {
-		GdkColor color;
-		color.red = PEAKIFY((i&15*16)) << 8;
-		color.green = PEAKIFY((i&15)*16+(i&15*16)/4) << 8;
-		color.blue = PEAKIFY((i&15)*16) << 8;
-	        gdk_color_alloc(c, &color);
-		colEq[i] = color.pixel;
-  	}
-
-	/* Create render image */
-	if (image) {
-		gdk_image_destroy(image);
-		image = NULL;
+		colEq[i] = scope_rgb(PEAKIFY((i&15*16)),
+				PEAKIFY((i&15)*16+(i&15*16)/4),
+				PEAKIFY((i&15)*16));
 	}
-	image = gdk_image_new(GDK_IMAGE_FASTEST, v, syn_width, syn_height);
-	bg_color.red = SCOPE_BG_RED << 8;
-	bg_color.green = SCOPE_BG_GREEN << 8;
-	bg_color.blue = SCOPE_BG_BLUE << 8;
-	gdk_color_alloc(c, &bg_color);
-	GDK_THREADS_LEAVE();
 
-	assert(image);
-	assert(image->bpp > 2);
+	while (running) {
+		unsigned char *outptr = output;
+		guint32 *bits;
+		int w;
 
-	bits = (guint32 *)image->mem;
+		synaescope_coreGo();
 
-	running = 1;
-
-	SYNAESCOPE_DOLOOP();
-
-	GDK_THREADS_ENTER();
-	synaescope_hide();
-	GDK_THREADS_LEAVE();
+		bits = scope_view_lock(&view);
+		if (bits) {
+			for (w = 0; w < syn_width * syn_height; w++) {
+				bits[w] = colEq[(outptr[0] >> 4) + (outptr[1] & 0xf0)];
+				outptr += 2;
+			}
+		}
+		scope_view_unlock_redraw(&view);
+		dosleep(SCOPE_SLEEP);
+	}
 }
-
-
-
-static void synaescope16(void *data)
-{
-	guint16 *bits;
-	guint16 colEq[256];
-	int i;
-	GdkWindow *win;
-	GdkColormap *c;
-	GdkVisual *v;
-	GdkGC *gc;
-	GdkColor bg_color;
-
-	win = (GdkWindow *)data;
-	GDK_THREADS_ENTER();
-	c = gdk_colormap_get_system();
-	gc = gdk_gc_new(win);
-	v = gdk_window_get_visual(win);
-
-	for (i = 0; i < 256; i++) {
-		GdkColor color;
-		color.red = PEAKIFY((i&15*16)) << 8;
-		color.green = PEAKIFY((i&15)*16+(i&15*16)/4) << 8;
-		color.blue = PEAKIFY((i&15)*16) << 8;
-		gdk_color_alloc(c, &color);
-		colEq[i] = color.pixel;
-	}
-
-	/* Create render image */
-	if (image) {
-		gdk_image_destroy(image);
-		image = NULL;
-	}
-	image = gdk_image_new(GDK_IMAGE_FASTEST, v, syn_width, syn_height);
-	bg_color.red = SCOPE_BG_RED << 8;
-	bg_color.green = SCOPE_BG_GREEN << 8;
-	bg_color.blue = SCOPE_BG_BLUE << 8;
-	gdk_color_alloc(c, &bg_color);
-	GDK_THREADS_LEAVE();
-
-	assert(image);
-	assert(image->bpp == 2);
-
-	bits = (guint16 *)image->mem;
-
-	running = 1;
-
-	SYNAESCOPE_DOLOOP();
-
-	GDK_THREADS_ENTER();
-	synaescope_hide();
-	GDK_THREADS_LEAVE();
-}
-
-
-static void synaescope8(void *data)
-{
-	guint8 *bits;
-	guint8 colEq[256];
-	int i;
-	GdkWindow *win;
-	GdkColormap *c;
-	GdkVisual *v;
-	GdkGC *gc;
-	GdkColor bg_color;
-
-	win = (GdkWindow *)data;
-	GDK_THREADS_ENTER();
-	c = gdk_colormap_get_system();
-	gc = gdk_gc_new(win);
-	v = gdk_window_get_visual(win);
-
-	for (i = 0; i < 64; i++) {
-		GdkColor color;
-		color.red = PEAKIFY((i&7*8)*4) << 8;
-		color.green = PEAKIFY((i&7)*32+(i&7*8)*2) << 8;
-		color.blue = PEAKIFY((i&7)*32) << 8;
-	        gdk_color_alloc(c, &color);
-		colEq[i * 4] = color.pixel;
-		colEq[i * 4 + 1] = color.pixel;
-		colEq[i * 4 + 2] = color.pixel;
-		colEq[i * 4 + 3] = color.pixel;
-  	}
-
-	/* Create render image */
-	if (image) {
-		gdk_image_destroy(image);
-		image = NULL;
-	}
-	image = gdk_image_new(GDK_IMAGE_FASTEST, v, syn_width, syn_height);
-	bg_color.red = SCOPE_BG_RED << 8;
-	bg_color.green = SCOPE_BG_GREEN << 8;
-	bg_color.blue = SCOPE_BG_BLUE << 8;
-	gdk_color_alloc(c, &bg_color);
-	GDK_THREADS_LEAVE();
-
-	assert(image);
-	assert(image->bpp == 1);
-
-	bits = (guint8 *)image->mem;
-
-	running = 1;
-
-	SYNAESCOPE_DOLOOP();
-
-	GDK_THREADS_ENTER();
-	synaescope_hide();
-	GDK_THREADS_LEAVE();
-}
-
-static GdkVisual *visual;
-static GdkWindow *win;
 
 static void stop_synaescope(void);
 
 static gboolean
 close_synaescope_window(GtkWidget * UNUSED (widget), GdkEvent * UNUSED (event), gpointer UNUSED (data))
 {
-	GDK_THREADS_LEAVE();
-        stop_synaescope();
-	GDK_THREADS_ENTER();
-
+	stop_synaescope();
 	return TRUE;
-}
-
-static GtkWidget *init_synaescope_window(void)
-{
-	GtkWidget *synaescope_win;
-	GtkStyle *style;
-	GdkColor *color;
-
-	pthread_mutex_init(&synaescope_mutex, NULL);
-
-	style = gtk_style_new();
-	synaescope_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(synaescope_win), "Synaescope");
-	gtk_widget_set_usize(synaescope_win, syn_width, syn_height);
-	gtk_window_set_policy (GTK_WINDOW (synaescope_win), FALSE, FALSE, FALSE);
-	style = gtk_style_copy(gtk_widget_get_style(GTK_WIDGET(synaescope_win)));
-
-	color = &style->bg[GTK_STATE_NORMAL];
-	color->red = SCOPE_BG_RED << 8;
-	color->blue = SCOPE_BG_BLUE << 8;
-	color->green = SCOPE_BG_GREEN << 8;
-	gdk_color_alloc(gdk_colormap_get_system(), color);
-	gtk_widget_set_style(GTK_WIDGET(synaescope_win), style);
-
-	gtk_widget_show(synaescope_win);
-
-	win = synaescope_win->window;
-
-	/* Signals */
-
-	gtk_signal_connect(GTK_OBJECT(synaescope_win), "delete_event",
-                GTK_SIGNAL_FUNC(close_synaescope_window), synaescope_win);
-
-
-	/* Clear and show the window */
-	gdk_window_clear(win);
-	gdk_window_show(win);
-	gdk_flush();
-
-	ready_state = 1;
-
-	return synaescope_win;
-}
-
-
-static void synaescope_hide(void)
-{
-	gint x, y;
-
-	if (scope_win) {
-		gdk_window_get_root_origin(scope_win->window, &x, &y);
-		gtk_widget_hide(scope_win);
-		gtk_widget_set_uposition(scope_win, x, y);
-	}
 }
 
 
@@ -514,48 +299,29 @@ static void stop_synaescope(void)
 		running = 0;
 		pthread_join(synaescope_thread, NULL);
 	}
+	scope_view_hide(&view);
 }
 
 
-static void
+static void *
 run_synaescope(void * UNUSED (data))
 {
-	nice(SCOPE_NICE); /* Be nice to most processes */
-
-	GDK_THREADS_ENTER();
-	visual = gdk_window_get_visual(win);
-	GDK_THREADS_LEAVE();
-
-	switch (visual->depth) {
-	 case 8:
-		synaescope8(win);
-		break;
-	 case 16:
-		synaescope16(win);
-		break;
-	 case 24:
-	 case 32:
-		synaescope32(win);
-		break;
-
-	}
-	pthread_mutex_unlock(&synaescope_mutex);
-	pthread_exit(NULL);
+	scope_thread_nice(); /* Be nice to most processes */
+	the_synaescope();
+	return NULL;
 }
 
 
 static void start_synaescope(void)
 {
-	if (pthread_mutex_trylock(&synaescope_mutex) != 0) {
+	if (running) {
 		printf("synaescope already running\n");
 		return;
 	}
-	if (!is_init) {
-		is_init = 1;
-		scope_win = init_synaescope_window();
-	}
-	gtk_widget_show(scope_win);
-	pthread_create(&synaescope_thread, NULL, (void * (*)(void *))run_synaescope, NULL);
+	scope_view_show(&view, G_CALLBACK(close_synaescope_window));
+	running = 1;
+	if (pthread_create(&synaescope_thread, NULL, run_synaescope, NULL) != 0)
+		running = 0;
 }
 
 
@@ -636,8 +402,8 @@ static void shutdown_synaescope(void)
 {
 	prefs_set_bool(ap_prefs, "synaescope", "active", synaescope_running());
 
-	if (synaescope_running())
-		stop_synaescope();
+	stop_synaescope();
+	scope_view_destroy(&view);
 }
 
 
