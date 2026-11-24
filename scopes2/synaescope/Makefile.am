@@ -22,5 +22,6 @@ libdir = $(ADDON_DIR)/scopes2
 
 libsynaescope_la_LDFLAGS = $(synaescopeldflags)
 LIBS =
+libsynaescope_la_LIBADD = -lm
 
 libsynaescope_la_SOURCES= $(synaescopesources)

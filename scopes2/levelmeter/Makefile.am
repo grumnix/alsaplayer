@@ -22,5 +22,6 @@ AM_CFLAGS = -D_REENTRANT -I$(top_builddir) \
 
 liblevelmeter_la_LDFLAGS = $(levelmeterldflags)
 LIBS =
+liblevelmeter_la_LIBADD = -lm
 
 liblevelmeter_la_SOURCES= $(levelmetersources)

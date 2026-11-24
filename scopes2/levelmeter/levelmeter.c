@@ -34,8 +34,13 @@
 #include "scope_config.h"
 #include "prefs.h"
 #include "ap_unused.h"
+#include "../scope_view.h"
 
 #define DECAY	3
+
+#define LM_WIDTH	256
+#define LM_HEIGHT	40
+#define LM_BAR_HEIGHT	18
 
 static char actlEq[257];
 static char oldlEq[257];
@@ -45,22 +50,12 @@ static char oldrEq[257];
 static char scX[256];
 static char scY[256];
 
-static GtkWidget *scope_win = NULL;
-static GtkWidget *area = NULL;
-static GdkPixmap *draw_pixmap = NULL, *disp = NULL;
-static GdkGC *gc = NULL;
+static scope_view view = SCOPE_VIEW_INIT("Levelmeter", LM_WIDTH, LM_HEIGHT);
+static guint32 bar_colors[LM_WIDTH];	/* colour of each meter column */
 static pthread_t levelmeter_thread;
-static pthread_mutex_t levelmeter_mutex;
-static gint is_init = 0;
-static gint running = 0;/* this global variable determines when
-			   and if we should exit the thread loop.
-			   we should always exit gracefully from
-			   the looper thread or else we might hold
-		           the global GDK thread lock (a very shitty hack)
-                           and lock our whole app */
+static gint running = 0;	/* the render thread loops while set */
 
 
-static void levelmeter_hide(void);
 static int levelmeter_running(void);
 
 static void levelmeter_set_data(void *audio_buffer, int size)
@@ -81,8 +76,24 @@ static void levelmeter_set_data(void *audio_buffer, int size)
 }
 
 
+/* Copy columns [x0, x1) of the meter gradient into rows y0..y0+BAR_HEIGHT. */
 static void
-the_levelmeter(GtkWidget * UNUSED (win))
+draw_bar(guint32 *px, int y0, int x0, int x1)
+{
+	int x, y;
+
+	if (x0 < 0)
+		x0 = 0;
+	if (x1 > LM_WIDTH)
+		x1 = LM_WIDTH;
+	for (y = y0; y < y0 + LM_BAR_HEIGHT && y < LM_HEIGHT; y++)
+		for (x = x0; x < x1; x++)
+			px[y * LM_WIDTH + x] = bar_colors[x];
+}
+
+
+static void
+the_levelmeter(void)
 {
 	static int oldl = 0;
 	static int oldr = 0;
@@ -93,8 +104,7 @@ the_levelmeter(GtkWidget * UNUSED (win))
 	int levell, levelr;
 	int maxl = 0, maxr = 0, count = 0;
 	int i;
-
-	running = 1;
+	guint32 *px;
 
 	while (running) {
 		memcpy(oldsetl, newsetl, 256);
@@ -143,21 +153,17 @@ the_levelmeter(GtkWidget * UNUSED (win))
 			maxr = (levelr<<2)-4;
 			count = 0;
 		}
-		GDK_THREADS_ENTER();
-		gdk_draw_rectangle(draw_pixmap,gc,TRUE,0,0,256,40);
-		gdk_draw_pixmap(draw_pixmap,gc,disp,0,0,0,1,levell<<2,18);
-		gdk_draw_pixmap(draw_pixmap,gc,disp,maxl,0,maxl,1,4,18);
-		gdk_draw_pixmap(draw_pixmap,gc,disp,0,0,0,21,levelr<<2,18);
-		gdk_draw_pixmap(draw_pixmap,gc,disp,maxr,0,maxr,21,4,18);
-		gdk_draw_pixmap(area->window,gc,draw_pixmap,0,0,0,0,256,40);
-		gdk_flush();
-		GDK_THREADS_LEAVE();
+		px = scope_view_lock(&view);
+		if (px) {
+			memset(px, 0, LM_WIDTH * LM_HEIGHT * sizeof(*px));
+			draw_bar(px, 1, 0, levell<<2);
+			draw_bar(px, 1, maxl, maxl + 4);
+			draw_bar(px, 21, 0, levelr<<2);
+			draw_bar(px, 21, maxr, maxr + 4);
+		}
+		scope_view_unlock_redraw(&view);
 		dosleep(SCOPE_SLEEP);
 	}
-	GDK_THREADS_ENTER();
-	levelmeter_hide();
-	gdk_flush();
-	GDK_THREADS_LEAVE();
 }
 
 
@@ -166,88 +172,27 @@ static void stop_levelmeter(void);
 static gboolean
 close_levelmeter_window(GtkWidget * UNUSED (widget), GdkEvent * UNUSED (event), gpointer UNUSED (data))
 {
-	GDK_THREADS_LEAVE();
 	stop_levelmeter();
-	GDK_THREADS_ENTER();
-
 	return TRUE;
 }
 
 
-static void
-popup(GtkWidget * UNUSED (widget), GdkEvent * UNUSED (event), gpointer UNUSED (data))
+static void init_levelmeter_tables(void)
 {
-	//printf("Bla\n");
-}
-
-
-static GtkWidget *init_levelmeter_window(void)
-{
-	GtkWidget *levelmeter_win;
-	GdkColor color, col;
 	int i;
 
-	pthread_mutex_init(&levelmeter_mutex, NULL);
-
-	levelmeter_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(levelmeter_win), "Levelmeter");
-	gtk_widget_set_usize(levelmeter_win, 255, 40);
-	gtk_window_set_policy (GTK_WINDOW (levelmeter_win), FALSE, FALSE, FALSE);
-	gtk_widget_set_events(levelmeter_win, GDK_BUTTON_PRESS_MASK);
-	gtk_widget_realize(levelmeter_win);
-
-	gc = gdk_gc_new(levelmeter_win->window);
-
-	if (!gc)
-		return NULL;
-	color.red = SCOPE_BG_RED << 8;
-	color.blue = SCOPE_BG_BLUE << 8;
-	color.green = SCOPE_BG_GREEN << 8;
-	gdk_color_alloc(gdk_colormap_get_system(), &color);
-
-	gint depth = gdk_visual_get_system()->depth;
-//	draw_pixmap = gdk_pixmap_new(levelmeter_win->window, 256,40, gdk_visual_get_best_depth());
-//	disp = gdk_pixmap_new(levelmeter_win->window, 256, 18, gdk_visual_get_best_depth());
-	draw_pixmap = gdk_pixmap_new(levelmeter_win->window, 256,40, depth);
-	disp = gdk_pixmap_new(levelmeter_win->window, 256, 18, depth);
-	for (i = 0; i < 256; i+=4) {
-		if (i < 128) {
-			col.red = (i<<1) << 8;
-			col.green = 255  << 8;
-			col.blue = 0;
-		} else {
-			col.red = 255 << 8;
-			col.green = (255 - (i << 1)) << 8;
-			col.blue = 0;
-		}
-		gdk_color_alloc(gdk_colormap_get_system(), &col);
-		gdk_gc_set_foreground(gc,&col);
-		gdk_draw_line(disp,gc,i,0,i,18);
-		gdk_draw_line(disp,gc,i+1,0,i+1,18);
-		gdk_draw_line(disp,gc,i+2,0,i+2,18);
-		gdk_gc_set_foreground(gc,&color);
-		gdk_draw_line(disp,gc,i+3,0,i+3,18);
+	/* Green to yellow to red in groups of three columns plus a gap. */
+	for (i = 0; i < LM_WIDTH; i += 4) {
+		guint32 col;
+		if (i < 128)
+			col = scope_rgb(i << 1, 255, 0);
+		else
+			col = scope_rgb(255, 255 - ((i - 128) << 1), 0);
+		bar_colors[i] = col;
+		bar_colors[i + 1] = col;
+		bar_colors[i + 2] = col;
+		bar_colors[i + 3] = scope_rgb(SCOPE_BG_RED, SCOPE_BG_GREEN, SCOPE_BG_BLUE);
 	}
-
-	gdk_color_black(gdk_colormap_get_system(),&col);
-
-	gdk_gc_set_foreground(gc,&col);
-
-
-	area = gtk_drawing_area_new();
-	gtk_container_add(GTK_CONTAINER(levelmeter_win), area);
-	gtk_widget_realize(area);
-	gdk_window_set_background(area->window, &color);
-
-	gdk_window_clear(area->window);
-	gtk_widget_show(area);
-
-	// Signals
-
-	gtk_signal_connect(GTK_OBJECT(levelmeter_win), "delete_event",
-		GTK_SIGNAL_FUNC(close_levelmeter_window), levelmeter_win);
-	gtk_signal_connect(GTK_OBJECT(levelmeter_win), "button_press_event",
-		GTK_SIGNAL_FUNC(popup), levelmeter_win);
 
 	// Create sin/cos tables
 
@@ -255,20 +200,6 @@ static GtkWidget *init_levelmeter_window(void)
                 scX[i] = (char) (sin(((2*M_PI)/255)*i)*128);
                 scY[i] = (char) (-cos(((2*M_PI)/255)*i)*128);
         }
-
-	return levelmeter_win;
-}
-
-
-
-void levelmeter_hide(void)
-{
-	gint x, y;
-	if (scope_win) {
-		gdk_window_get_root_origin(scope_win->window, &x, &y);
-		gtk_widget_hide(scope_win);
-		gtk_widget_set_uposition(scope_win, x, y);
-	}
 }
 
 
@@ -278,42 +209,37 @@ static void stop_levelmeter(void)
 		running = 0;
 		pthread_join(levelmeter_thread, NULL);
 	}
+	scope_view_hide(&view);
 }
 
 
-static void
+static void *
 run_levelmeter(void * UNUSED (data))
 {
-	nice(SCOPE_NICE);
-	the_levelmeter(scope_win);
-	pthread_mutex_unlock(&levelmeter_mutex);
-	pthread_exit(NULL);
+	scope_thread_nice();
+	the_levelmeter();
+	return NULL;
 }
 
 
 
 static void start_levelmeter(void)
 {
-    if (!is_init) {
-		scope_win = init_levelmeter_window();
-		if (!scope_win)
-			return;
-		is_init = 1;
-	}
-	if (pthread_mutex_trylock(&levelmeter_mutex) != 0) {
+	if (running) {
 			printf("levelmeter already running\n");
 			return;
 	}
 
-	gtk_widget_show(scope_win);
-
-	pthread_create(&levelmeter_thread, NULL,
-		(void * (*)(void *))run_levelmeter, NULL);
+	scope_view_show(&view, G_CALLBACK(close_levelmeter_window));
+	running = 1;
+	if (pthread_create(&levelmeter_thread, NULL, run_levelmeter, NULL) != 0)
+		running = 0;
 }
 
 static int
 init_levelmeter(void * UNUSED (arg))
 {
+	init_levelmeter_tables();
 	if (prefs_get_bool(ap_prefs, "levelmeter", "active", 0))
 		start_levelmeter();
 	return 1;
@@ -325,24 +251,7 @@ static void shutdown_levelmeter(void)
 	prefs_set_bool(ap_prefs, "levelmeter", "active", levelmeter_running());
 
 	stop_levelmeter();
-	if (disp) {
-					gdk_pixmap_unref(disp);
-	}
-	if (draw_pixmap) {
-					gdk_pixmap_unref(draw_pixmap);
-	}
-	if (area) {
-					gtk_widget_destroy(area);
-					area = NULL;
-	}
-	if (gc) {
-					gdk_gc_destroy(gc);
-					gc = NULL;
-	}
-	if (scope_win) {
-					gtk_widget_destroy(scope_win);
-					scope_win = NULL;
-	}
+	scope_view_destroy(&view);
 }
 
 

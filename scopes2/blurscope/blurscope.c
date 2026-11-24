@@ -35,12 +35,10 @@
 #include "utilities.h"
 #include "prefs.h"
 #include "ap_unused.h"
+#include "../scope_view.h"
 
-static GtkWidget *window = NULL,*area;
-static GdkPixmap *bg_pixmap = NULL;
 static pthread_t bscope_thread;
-static pthread_mutex_t bscope_mutex;
-static pthread_mutex_t edit_mutex;
+static pthread_mutex_t edit_mutex = PTHREAD_MUTEX_INITIALIZER;
 static gint running = 0;
 static gint16 audio_data[2][256];
 
@@ -50,7 +48,8 @@ static gint16 audio_data[2][256];
 #define BPL	((WIDTH + 2))
 
 static guchar rgb_buf[(WIDTH + 2) * (HEIGHT + 2)];
-static GdkRgbCmap *cmap = NULL;
+static guint32 palette[256];
+static scope_view view = SCOPE_VIEW_INIT("Blurscope", WIDTH, HEIGHT);
 
 static int bscope_running(void);
 
@@ -85,23 +84,16 @@ extern void bscope_blur_8(guchar *ptr,gint w, gint h, gint bpl);
 static void
 generate_cmap(void)
 {
-	guint32 colors[256],i,red,blue,green;
-	if(window)
+	guint32 i,red,blue,green;
+
+	red = (guint32)(0xFF3F7F / 0x10000);
+	green = (guint32)((0xFF3F7F % 0x10000)/0x100);
+	blue = (guint32)(0xFF3F7F % 0x100);
+	for(i = 255; i > 0; i--)
 	{
-		red = (guint32)(0xFF3F7F / 0x10000);
-		green = (guint32)((0xFF3F7F % 0x10000)/0x100);
-		blue = (guint32)(0xFF3F7F % 0x100);
-		for(i = 255; i > 0; i--)
-		{
-			colors[i] = (((guint32)(i*red/256) << 16) | ((guint32)(i*green/256) << 8) | ((guint32)(i*blue/256)));
-		}
-		colors[0]=0;
-		if(cmap)
-		{
-			gdk_rgb_cmap_free(cmap);
-		}
-		cmap = gdk_rgb_cmap_new(colors,256);
+		palette[i] = scope_rgb(i*red/256, i*green/256, i*blue/256);
 	}
+	palette[0]=0;
 }
 
 static void stop_bscope(void)
@@ -110,50 +102,21 @@ static void stop_bscope(void)
 		running = 0;
 		pthread_join(bscope_thread, NULL);
 	}
+	scope_view_hide(&view);
 }
 
 
 static gboolean close_bscope_window(GtkWidget * UNUSED (widget), GdkEvent * UNUSED (event), gpointer UNUSED (data))
 {
-	GDK_THREADS_LEAVE();
 	stop_bscope();
-	GDK_THREADS_ENTER();
 	return TRUE;
 }
 
 
 static void bscope_init(void)
 {
-	GdkColor color;
-
-	if(window)
-		return;
-
-	pthread_mutex_init(&bscope_mutex, NULL);
-	pthread_mutex_init(&edit_mutex, NULL);
-
-	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(window),"Blurscope");
-	gtk_window_set_policy(GTK_WINDOW(window), FALSE, FALSE, FALSE);
-	gtk_widget_realize(window);
-	color.red = SCOPE_BG_RED << 8;
-	color.blue = SCOPE_BG_BLUE << 8;
-	color.green = SCOPE_BG_GREEN << 8;
-	gdk_color_alloc(gdk_colormap_get_system(), &color);
-	gtk_signal_connect(GTK_OBJECT(window), "delete_event",
-			GTK_SIGNAL_FUNC(close_bscope_window), window);
-	gtk_widget_set_usize(window, WIDTH, HEIGHT);
-
-	area = gtk_drawing_area_new();
-	gtk_container_add(GTK_CONTAINER(window),area);
-	gtk_widget_realize(area);
-	gdk_window_set_background(area->window, &color);
 	generate_cmap();
 	memset(rgb_buf,0,(WIDTH + 2) * (HEIGHT + 2));
-
-	gtk_widget_show(area);
-	gdk_window_clear(window->window);
-	gdk_window_clear(area->window);
 }
 
 static void shutdown_bscope(void)
@@ -161,19 +124,7 @@ static void shutdown_bscope(void)
 	prefs_set_bool(ap_prefs, "blurscope", "active", bscope_running());
 
 	stop_bscope();
-
-	if(window)
-		gtk_widget_destroy(window);
-	if(bg_pixmap)
-	{
-		gdk_pixmap_unref(bg_pixmap);
-		bg_pixmap = NULL;
-	}
-	if(cmap)
-	{
-		gdk_rgb_cmap_free(cmap);
-		cmap = NULL;
-	}
+	scope_view_destroy(&view);
 }
 
 static inline void draw_vert_line(guchar *buffer, gint x, gint y_1, gint y_2)
@@ -193,8 +144,6 @@ static inline void draw_vert_line(guchar *buffer, gint x, gint y_1, gint y_2)
 		draw_pixel_8(buffer,x,y_1,0xFF);
 }
 
-
-static void bscope_hide(void);
 
 static void bscope_set_data(void *audio_buffer, int size)
 {
@@ -241,8 +190,6 @@ static void bscope_set_data(void *audio_buffer, int size)
 
 static void the_bscope(void)
 {
-	running = 1;
-
 	while (running) {
 		gint i,y, prev_y;
 #ifndef FREQ_BLUR
@@ -270,51 +217,36 @@ static void the_bscope(void)
 		pthread_mutex_unlock(&edit_mutex);
 #endif
 
-		GDK_THREADS_ENTER();
-		gdk_draw_indexed_image(area->window,area->style->white_gc,0,0,WIDTH,HEIGHT,GDK_RGB_DITHER_NONE,rgb_buf + BPL + 1,(WIDTH + 2),cmap);
-		gdk_flush();
-		GDK_THREADS_LEAVE();
+		/* edit_mutex keeps set_data from touching rgb_buf mid-copy */
+		pthread_mutex_lock(&edit_mutex);
+		scope_view_put_indexed(&view, rgb_buf + BPL + 1, BPL, palette);
+		pthread_mutex_unlock(&edit_mutex);
 
 		dosleep(SCOPE_SLEEP);
 	}
-	GDK_THREADS_ENTER();
-	bscope_hide();
-	gdk_flush();
-	GDK_THREADS_LEAVE();
 }
 
 
-static void bscope_hide(void)
+static void *run_bscope(void * UNUSED (data))
 {
-	gint x, y;
-	if (window) {
-		gdk_window_get_root_origin(window->window, &x, &y);
-		gtk_widget_hide(window);
-		gtk_widget_set_uposition(window, x, y);
-	}
-}
-
-
-static void run_bscope(void * UNUSED (data))
-{
-	nice(SCOPE_NICE);
+	scope_thread_nice();
 	the_bscope();
-	pthread_mutex_unlock(&bscope_mutex);
-	pthread_exit(NULL);
+	return NULL;
 }
 
 
 
 static void start_bscope(void)
 {
-	if (pthread_mutex_trylock(&bscope_mutex) != 0) {
+	if (running) {
 			printf("blurscope already running\n");
 			return;
 	}
 
-	gtk_widget_show(window);
-	pthread_create(&bscope_thread, NULL,
-		(void * (*)(void *))run_bscope, NULL);
+	scope_view_show(&view, G_CALLBACK(close_bscope_window));
+	running = 1;
+	if (pthread_create(&bscope_thread, NULL, run_bscope, NULL) != 0)
+		running = 0;
 }
 
 

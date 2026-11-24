@@ -55,7 +55,7 @@ Top-level layout (checked-in tree ≈ **5.8 MB**; **`attic/` alone ≈ 3.0 M
 | `input/` | Decoders: mad, flac, vorbis, mikmod, sndfile, cdda | conditional |
 | `output/` | Backends: alsa, jack, oss, null, **esound**, nas, sgi, sparc | conditional |
 | `reader/` | file + http readers | yes |
-| `scopes2/` | Visualization plugins (monoscope, blurscope, …) | yes (OpenGL ones need GL) |
+| `scopes2/` | Visualization plugins (monoscope, blurscope, …); GTK3/Cairo | yes (OpenGL spectrum needs GL) |
 | `examples/` | libalsaplayer sample clients | yes |
 | `extra/` | desktop file, icon, theme | yes |
 | `po/`, `m4/`, `docs/` | i18n, autoconf macros, doxygen | partial |
@@ -156,7 +156,7 @@ These are not safe to delete without behavior analysis.
 **Inputs:** mad (libmad), flac, vorbis, mikmod, sndfile, cdda (`linux/cdrom.h`).  
 **Outputs:** alsa, jack, oss, null; others niche.  
 **Readers:** file, http.  
-**Scopes:** under `scopes2/` (OpenGL spectrum needs GL).
+**Scopes:** under `scopes2/`: blurscope, levelmeter, logbarfft, monoscope, spacescope, synaescope (GTK3/Cairo) and opengl_spectrum (needs GL).
 
 README still mentions an older mpg123-based MPEG plugin as being phased out in favor of MAD; **no mpg123 sources remain** in the active tree (only MAD).
 
@@ -165,7 +165,7 @@ README still mentions an older mpg123-based MPEG plugin as being phased out in f
 ## Packaging implications
 
 - Do **not** treat `attic/` as build inputs; excluding it from `src` (e.g. tighter `cleanSource` filter) would shrink the Nix store footprint but is optional.
-- Optional configure flags can stay minimal: ALSA, JACK, GTK2, MAD, FLAC, Vorbis, MikMod, sndfile, OpenGL scopes; disable ESD/systray unless requested.
+- Optional configure flags can stay minimal: ALSA, JACK, GTK3, MAD, FLAC, Vorbis, MikMod, sndfile, OpenGL scopes; disable ESD/systray unless requested.
 - Removing `old_playlist.h` or pruning `m4/gtk.m4` / `m4/qt.m4` is a separate cleanup, not required for a working flake.
 
 ## Handoff
@@ -192,9 +192,9 @@ Mechanical / API changes applied:
 
 ### Scopes and GTK3
 
-Most visualization plugins under `scopes2/` (monoscope, blurscope, levelmeter, …) still call **removed GDK drawing APIs** (`gdk_draw_indexed_image`, `GdkRgbCmap`, `widget->style->white_gc`, `GDK_THREADS_*`). They are **not built** with the GTK3 port until rewritten with Cairo/`draw`.
+All software scopes under `scopes2/` (blurscope, levelmeter, logbarfft, monoscope, spacescope, synaescope) are ported to GTK3 via **`scopes2/scope_view.h`**: the render thread fills an xRGB buffer under a mutex and schedules a redraw with `g_idle_add`; the widget `draw` handler paints it with Cairo on the main thread. GTK calls happen only on the main thread (plugin init/start/stop/shutdown run there); `shutdown` removes any pending idle source before the plugin is `dlclose()`d. Scopes link `-lm` (spacescope vectorizes into libmvec). `opengl_spectrum` is unchanged and needs GL.
 
-`scopes2/Makefile.am` currently only builds **`opengl_spectrum`**.
+The same port (without flake/CMake) lives on branch **`gtk3-upstream`** for submission to upstream.
 
 Known follow-ups: replace override_* with CSS providers; migrate off StatusIcon; verify DnD and file chooser on GTK 3.24+.
 

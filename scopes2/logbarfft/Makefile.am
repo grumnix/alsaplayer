@@ -23,5 +23,6 @@ libdir = $(ADDON_DIR)/scopes2
 
 liblogbarfft_la_LDFLAGS = $(logbarfftldflags)
 LIBS =
+liblogbarfft_la_LIBADD = -lm
 
 liblogbarfft_la_SOURCES= $(logbarfftsources)

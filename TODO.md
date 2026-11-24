@@ -3,7 +3,7 @@
 ## Current tip
 
 - Branch: `master` (fork of upstream alsaplayer)
-- Tip: develop shell with configure/build/run/gdb helpers
+- Tip: merge of `gtk3-upstream` (GTK3 scope port)
 - Goal: working Nix flake that builds alsaplayer from this tree
 - Base of this work line: `05ca204`
 
@@ -25,6 +25,8 @@
 - [x] Confirm plugins under `$out/lib/alsaplayer` (input, output, interface, reader, scopes2)
 - [x] `alsaplayer --help` reports default interface `gtk3`
 - [x] Clear compiler warnings (no silencing)
+- [x] Port scopes2/* (except opengl_spectrum) to GTK3/Cairo via `scopes2/scope_view.h`; built by autotools and CMake; verified with live audio (JACK dummy + Xvfb)
+- [x] Upstream branch `gtk3-upstream` (3 commits on `05ca204`, each builds; no flake/CMake/Grok trailers); bundle `alsaplayer-gtk3-upstream.bundle`; merged into master
 - [x] Develop shell: `alsaplayer-configure|build|run|run-gdb`
   - PROJECT_SOURCE required (clear error outside shell)
   - build-before-run; stage install for ADDON_DIR
@@ -40,7 +42,6 @@
   - Likely path: GTK file chooser / uri-list / playlist load on slow FS
 - [ ] Manual smoke test of GTK3 UI (needs display / audio device)
 - [ ] Fix any remaining GTK3 deprecation warnings (override_* → CSS, StatusIcon)
-- [ ] Port scopes2/* (except opengl_spectrum) from gdk_draw_* to Cairo; re-enable in scopes2/Makefile.am (and CMake if needed)
 - [ ] Optional: tighter `cleanSource` / filter to drop `attic/` from the derivation src
 - [ ] Optional cleanup (separate decision): remove `alsaplayer/old_playlist.h`; drop unused `m4/gtk.m4`, `m4/qt.m4`
 - [ ] Optionally `--enable-systray` / ENABLE_SYSTRAY

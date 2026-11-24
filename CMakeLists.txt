@@ -354,6 +354,17 @@ if(ENABLE_GTK3)
   )
   target_compile_options(gtk3_interface PRIVATE ${GTK3_CFLAGS_OTHER} -Wno-deprecated-declarations)
   target_include_directories(gtk3_interface PRIVATE ${CMAKE_SOURCE_DIR}/interface/gtk3)
+
+  # Software scopes: GTK3 window + Cairo (see scopes2/scope_view.h).
+  # libm: spacescope's sin/cos tables vectorize into libmvec calls.
+  foreach(_scope blurscope levelmeter logbarfft monoscope spacescope synaescope)
+    alsa_player_plugin(${_scope} DIR scopes2
+      SOURCES scopes2/${_scope}/${_scope}.c
+      LIBS ${GTK3_LIBRARIES} m
+      INCLUDES ${GTK3_INCLUDE_DIRS}
+    )
+    target_compile_options(${_scope} PRIVATE ${GTK3_CFLAGS_OTHER})
+  endforeach()
 endif()
 
 if(ENABLE_OPENGL)

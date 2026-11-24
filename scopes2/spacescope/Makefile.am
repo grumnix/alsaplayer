@@ -22,5 +22,6 @@ libdir = $(ADDON_DIR)/scopes2
 
 libspacescope_la_LDFLAGS = $(spacescopeldflags)
 LIBS =
+libspacescope_la_LIBADD = -lm
 
 libspacescope_la_SOURCES= $(spacescopesources)

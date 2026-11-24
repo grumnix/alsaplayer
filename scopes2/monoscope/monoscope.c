@@ -36,30 +36,21 @@
 #include "alsaplayer_convolve.h"
 #include "alsaplayer_error.h"
 #include "ap_unused.h"
+#include "../scope_view.h"
 
 short newEq[CONVOLVE_BIG];	/* latest block of 512 samples. */
 static short copyEq[CONVOLVE_BIG];
 int avgEq[CONVOLVE_SMALL];	/* a running average of the last few. */
 int avgMax;			/* running average of max sample. */
 
-static GtkWidget *area = NULL;
-static GtkWidget *scope_win = NULL;
-static GdkRgbCmap *color_map = NULL;
-static int ready_state = 0;
+static scope_view view = SCOPE_VIEW_INIT("Monoscope", 256, 128);
+static guint32 palette[256];
 static pthread_t monoscope_thread;
-static pthread_mutex_t monoscope_mutex;
-static pthread_mutex_t update_mutex;
-static int is_init = 0;
+static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int running = 0;
 static convolve_state *state = NULL;
 
-static void monoscope_hide(void);
 static int monoscope_running(void);
-
-static const int default_colors[] = {
-	10, 20, 30,
-	230, 230, 230
-};
 
 static void
 monoscope_set_data(void *audio_buffer, int size)
@@ -96,8 +87,6 @@ the_monoscope(void)
 	int i, h;
 	guchar bits[ 257 * 129];
 	guchar *loc;
-
-	running = 1;
 
 	while (running) {
 		int factor;
@@ -166,18 +155,9 @@ the_monoscope(void)
 				bits[i + (h << 8)] = 63;
 			}
 		}
-		GDK_THREADS_ENTER();
-		gdk_draw_indexed_image(area->window,area->style->white_gc,
-				0, 0, 256, 128, GDK_RGB_DITHER_NONE, bits, 256, color_map);
-		gdk_flush();
-		GDK_THREADS_LEAVE();
+		scope_view_put_indexed(&view, bits, 256, palette);
 		dosleep(SCOPE_SLEEP);
 	}
-
-	GDK_THREADS_ENTER();
-	monoscope_hide();
-	gdk_flush();
-	GDK_THREADS_LEAVE();
 }
 
 static void stop_monoscope(void);
@@ -185,112 +165,55 @@ static void stop_monoscope(void);
 static gboolean
 close_monoscope_window(GtkWidget * UNUSED (widget), GdkEvent * UNUSED (event), gpointer UNUSED (data))
 {
-	GDK_THREADS_LEAVE();
 	stop_monoscope();
-	GDK_THREADS_ENTER();
-
 	return TRUE;
 }
 
 
-static GtkWidget *
-init_monoscope_window(void)
+static void
+init_palette(void)
 {
-	GtkWidget *monoscope_win;
-	GdkColor color;
-	guint32 colors[65];
 	int i;
 
-	pthread_mutex_init(&monoscope_mutex, NULL);
-	pthread_mutex_init(&update_mutex, NULL);
-
-	monoscope_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(monoscope_win), "Monoscope");
-	gtk_widget_set_usize(monoscope_win, 256,128);
-	gtk_window_set_policy (GTK_WINDOW (monoscope_win), FALSE, FALSE, FALSE);
-
-	gtk_widget_realize(monoscope_win);
-
-	color.red = SCOPE_BG_RED << 8;
-	color.blue = SCOPE_BG_BLUE << 8;
-	color.green = SCOPE_BG_GREEN << 8;
-	gdk_color_alloc(gdk_colormap_get_system(), &color);
-
-	colors[0] = 0;
 	for (i = 1; i < 32; i++) {
-		colors[i] = (i*8 << 16) +(255 << 8);
-		colors[i+31] = (255 << 16) + (((31 - i) * 8) << 8);
+		palette[i] = scope_rgb(i * 8, 255, 0);
+		palette[i + 31] = scope_rgb(255, (31 - i) * 8, 0);
 	}
-	colors[63] = (40 << 16) + (75 << 8);
-	color_map = gdk_rgb_cmap_new(colors, 64);
-	area = gtk_drawing_area_new();
-	gtk_container_add(GTK_CONTAINER(monoscope_win), area);
-	gtk_widget_realize(area);
-	gdk_window_set_background(area->window, &color);
-
-	gtk_widget_show(area);
-	gtk_widget_show(monoscope_win);
-
-	/* Signals */
-
-	gtk_signal_connect(GTK_OBJECT(monoscope_win), "delete_event",
-			GTK_SIGNAL_FUNC(close_monoscope_window), monoscope_win);
-
-
-	ready_state = 1;
-
-	return monoscope_win;
+	palette[63] = scope_rgb(40, 75, 0);
 }
 
 
-void monoscope_hide(void)
-{
-	gint x, y;
-
-	if (scope_win) {
-		gdk_window_get_root_origin(scope_win->window, &x, &y);
-		gtk_widget_hide(scope_win);
-		gtk_widget_set_uposition(scope_win, x, y);
-	} else {
-		printf("Tried to hide destroyed widget!\n");
-	}
-}
-
-
-void stop_monoscope(void)
+static void
+stop_monoscope(void)
 {
 	if (running) {
 		running = 0;
 		pthread_join(monoscope_thread, NULL);
 	}
+	scope_view_hide(&view);
 }
 
 
-static void
+static void *
 run_monoscope(void * UNUSED (data))
 {
-	nice(SCOPE_NICE); /* Be nice to most processes */
-
+	scope_thread_nice(); /* Be nice to most processes */
 	the_monoscope();
-
-	pthread_mutex_unlock(&monoscope_mutex);
-	pthread_exit(NULL);
+	return NULL;
 }
 
 
 static void
 start_monoscope(void)
 {
-	if (!is_init) {
-		is_init = 1;
-		scope_win = init_monoscope_window();
-	}
-	if (pthread_mutex_trylock(&monoscope_mutex) != 0) {
+	if (running) {
 		printf("monoscope already running\n");
 		return;
 	}
-	gtk_widget_show(scope_win);
-	pthread_create(&monoscope_thread, NULL, (void * (*)(void *))run_monoscope, NULL);
+	scope_view_show(&view, G_CALLBACK(close_monoscope_window));
+	running = 1;
+	if (pthread_create(&monoscope_thread, NULL, run_monoscope, NULL) != 0)
+		running = 0;
 }
 
 
@@ -299,6 +222,8 @@ init_monoscope(void * UNUSED (arg))
 {
 	state = convolve_init();
 	if(!state) return 0;
+
+	init_palette();
 
 	/* FIXME - Need to call convolve_close(state); at some point
 	 * if this is going to become a proper plugin. */
@@ -313,11 +238,8 @@ static void shutdown_monoscope(void)
 {
 	prefs_set_bool(ap_prefs, "monoscope", "active", monoscope_running());
 
-	if (monoscope_running())
-		stop_monoscope();
-	/*
-		if (state)
-		*/
+	stop_monoscope();
+	scope_view_destroy(&view);
 }
 
 static int monoscope_running(void)

@@ -152,7 +152,7 @@ InfoWindow *infowindow;
 // Callback functions //
 ////////////////////////
 
-gint indicator_callback(gpointer data, int locking);
+gint indicator_callback(void);
 void draw_speed(float speed);
 void draw_pan(float pan);
 void draw_volume(float vol);
@@ -193,7 +193,7 @@ void volume_changed(void *, float vol)
 void position_notify(void *, int)
 {
 	notifier_lock();
-	indicator_callback(NULL, 0);
+	indicator_callback();
 	notifier_unlock();
 }
 
@@ -414,7 +414,7 @@ gboolean button_release_event(GtkWidget *widget, GdkEvent *event, gpointer)
 
 gboolean move_event(GtkWidget *, GdkEvent *, gpointer)
 {
-	indicator_callback(NULL, 0);
+	indicator_callback();
 	return FALSE;
 }
 
@@ -799,7 +799,7 @@ void pan_cb(GtkWidget *widget, gpointer data)
 }
 
 
-gint indicator_callback(gpointer, int locking)
+gint indicator_callback(void)
 {
 	update_struct *ustr;
 	Playlist *pl;
@@ -1030,7 +1030,7 @@ update_info_window(GtkWidget *main_window)
 	draw_speed(speed_val/100.0);
 	draw_volume(vol_val/100.0);
 
-	indicator_callback(NULL, 0);
+	indicator_callback();
 }
 
 static void
